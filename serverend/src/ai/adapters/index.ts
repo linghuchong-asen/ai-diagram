@@ -1,4 +1,2 @@
-// apps/server/src/modules/ai/adapters/index.ts
-export * from './qwen.adapter';
-export * from './sse.adapter';
-export * from './retry.adapter';
+// 语图技术方案 - adapters 适配层(LLM 模型分层)
+export * from './llm.factory';

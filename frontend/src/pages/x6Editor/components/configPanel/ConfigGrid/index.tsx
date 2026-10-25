@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { Tabs, Row, Col, Input, Slider, Select, Collapse } from "antd";
 import styled from "@emotion/styled";
+import { Graph } from "@antv/x6";
 const { TabPane } = Tabs;
 const { Option } = Select;
 const { Panel } = Collapse;
@@ -22,7 +23,11 @@ interface gridProp {
   BackgroundColor: string;
 }
 
-const GridPanel = (props: any) => {
+interface gridPanelProps {
+  graph: Graph;
+}
+
+const GridPanel = (props: gridPanelProps) => {
   const graph = props.graph;
   const [attrs, setAttrs] = useState<gridProp>({
     GridType: "mesh",
@@ -65,7 +70,6 @@ const GridPanel = (props: any) => {
               defaultValue={attrs?.GridType}
               style={{ width: 120 }}
               onChange={(val) => {
-                console.log("onchange");
                 setAttr("GridType", val);
               }}
             >

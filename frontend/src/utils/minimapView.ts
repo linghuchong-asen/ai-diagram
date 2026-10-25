@@ -11,7 +11,9 @@ export class SimpleNodeView extends NodeView {
     })
   }
   protected renderMarkup() {
-    return this.renderJSONMarkup({
+    // X6 1.x 的 NodeView 在运行时提供 renderJSONMarkup，
+    // 但其类型声明中未导出该方法，故此处做类型断言。
+    return (this as unknown as { renderJSONMarkup(markup: unknown): void }).renderJSONMarkup({
       tagName: 'rect',
       selector: 'body',
     })

@@ -1,0 +1,633 @@
+/* ==========================================================================
+   语图 Neon Dark 设计系统（2026 科技感改造）
+   设计原则（源自竞品调研：Whimsical/Eraser/Napkin + 2026 暗色 SaaS 趋势）：
+     · 近黑深蓝基底，明度阶梯分层（拒绝纯黑）
+     · 单一电光青强调色 + 克制辉光（呼应 X6 连接桩 #31d0c6）
+     · 玻璃拟态面板（backdrop-blur + 半透明填充）
+     · 1px 渐变描边作为品牌签名
+     · off-white 文字阶梯，绝不用纯白
+     · 等宽字体做技术标签
+   引入顺序：必须在 antd.dark.css 之后（App.tsx 中保证），此处覆盖优先。
+   ========================================================================== */
+
+:root {
+  /* 基底（近黑深蓝明度阶梯） */
+  --yt-bg-deep: #070b14;
+  --yt-bg-base: #0a0f1e;
+  --yt-bg-panel: #10182c;
+  --yt-bg-elevated: #18223d;
+
+  /* 玻璃面板填充 */
+  --yt-glass: rgba(16, 24, 44, 0.78);
+  --yt-glass-strong: rgba(18, 27, 49, 0.94);
+
+  /* 描边 */
+  --yt-border: rgba(148, 163, 184, 0.16);
+  --yt-border-bright: rgba(148, 163, 184, 0.30);
+
+  /* 强调色：电光青 */
+  --yt-accent: #22d3ee;
+  --yt-accent-deep: #0891b2;
+  --yt-accent-soft: rgba(34, 211, 238, 0.14);
+  --yt-accent-glow: rgba(34, 211, 238, 0.40);
+
+  /* 品牌渐变 */
+  --yt-gradient: linear-gradient(135deg, #06b6d4 0%, #6366f1 100%);
+  --yt-gradient-hover: linear-gradient(135deg, #22d3ee 0%, #818cf8 100%);
+
+  /* 文字（off-white 阶梯） */
+  --yt-text-primary: #e6ecf8;
+  --yt-text-secondary: #94a3b8;
+  --yt-text-muted: #5d6b84;
+
+  /* 等宽技术字体 */
+  --yt-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code',
+    Consolas, 'Courier New', monospace;
+}
+
+/* ---------- 全局基础 ---------- */
+
+body {
+  background: var(--yt-bg-base);
+  color: var(--yt-text-primary);
+}
+
+a {
+  color: var(--yt-accent);
+}
+
+/* 全局细滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.18);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.32);
+}
+
+/* ---------- 氛围背景（登录/注册/首页/法务页共用） ---------- */
+
+.yt-atmo {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 38% at 18% -4%, rgba(34, 211, 238, 0.13), transparent 62%),
+    radial-gradient(ellipse 48% 34% at 88% 8%, rgba(99, 102, 241, 0.13), transparent 64%),
+    radial-gradient(ellipse 70% 50% at 50% 112%, rgba(30, 58, 138, 0.20), transparent 70%),
+    var(--yt-bg-deep);
+}
+
+/* 细网格（低对比，中心向四周衰减） */
+.yt-atmo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 28%, #000 30%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 28%, #000 30%, transparent 100%);
+}
+
+/* 顶部扫描光束（克制：低透明度缓慢横移） */
+.yt-atmo::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), transparent);
+  animation: yt-scan 9s linear infinite;
+  opacity: 0.6;
+}
+
+@keyframes yt-scan {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+/* ---------- 玻璃面板 ---------- */
+
+/* 基础玻璃卡片 */
+.yt-glass {
+  background: var(--yt-glass);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--yt-border);
+  border-radius: 16px;
+  box-shadow:
+    0 12px 48px rgba(2, 6, 18, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* 品牌签名：1px 渐变描边玻璃卡（双背景 padding-box/border-box 技巧） */
+.yt-glass-border {
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background:
+    linear-gradient(rgba(14, 20, 38, 0.92), rgba(14, 20, 38, 0.92)) padding-box,
+    linear-gradient(150deg, rgba(34, 211, 238, 0.65), rgba(99, 102, 241, 0.45) 46%, rgba(148, 163, 184, 0.14)) border-box;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  box-shadow:
+    0 16px 56px rgba(2, 6, 18, 0.62),
+    0 0 0 1px rgba(34, 211, 238, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ---------- 品牌按钮（覆盖 antd primary，用于核心 CTA） ---------- */
+
+.yt-btn-primary.ant-btn-primary {
+  background: var(--yt-gradient);
+  border: none;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 20px rgba(34, 211, 238, 0.28);
+  transition: all 0.25s ease;
+}
+
+.yt-btn-primary.ant-btn-primary:hover,
+.yt-btn-primary.ant-btn-primary:focus {
+  background: var(--yt-gradient-hover);
+  box-shadow: 0 6px 28px rgba(34, 211, 238, 0.45);
+  transform: translateY(-1px);
+}
+
+/* ---------- 等宽技术标签 ---------- */
+
+.yt-mono {
+  font-family: var(--yt-mono);
+  letter-spacing: 0.08em;
+}
+
+/* ---------- AI 浮窗 ---------- */
+
+/* 收起态：霓虹圆钮（呼吸辉光） */
+.yt-ai-orb {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  background: var(--yt-gradient);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.45),
+    0 8px 24px rgba(2, 6, 18, 0.6);
+  animation: yt-breathe 3.2s ease-in-out infinite;
+  transition: transform 0.2s ease;
+}
+
+.yt-ai-orb:hover {
+  transform: scale(1.08);
+}
+
+@keyframes yt-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 14px rgba(34, 211, 238, 0.35),
+      0 8px 24px rgba(2, 6, 18, 0.6);
+  }
+  50% {
+    box-shadow:
+      0 0 26px rgba(34, 211, 238, 0.62),
+      0 8px 28px rgba(2, 6, 18, 0.65);
+  }
+}
+
+/* 对话气泡 */
+.yt-bubble-user {
+  max-width: 86%;
+  padding: 8px 12px;
+  border-radius: 12px 12px 4px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #06202a;
+  background: linear-gradient(135deg, #22d3ee 0%, #38bdf8 100%);
+  box-shadow: 0 2px 12px rgba(34, 211, 238, 0.25);
+}
+
+.yt-bubble-ai {
+  max-width: 86%;
+  padding: 8px 12px;
+  border-radius: 12px 12px 12px 4px;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--yt-text-primary);
+  background: rgba(30, 41, 66, 0.66);
+  border: 1px solid var(--yt-border);
+}
+
+/* AI 思考流：等宽字体 + 打字光标 */
+.yt-thinking {
+  font-family: var(--yt-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--yt-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.yt-thinking::after {
+  content: '▍';
+  color: var(--yt-accent);
+  animation: yt-blink 0.9s step-end infinite;
+}
+
+@keyframes yt-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 快捷提示词 chips */
+.yt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--yt-text-secondary);
+  background: rgba(30, 41, 66, 0.5);
+  border: 1px solid var(--yt-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.yt-chip:hover {
+  color: var(--yt-accent);
+  border-color: rgba(34, 211, 238, 0.45);
+  background: var(--yt-accent-soft);
+}
+
+/* ---------- X6 编辑器暗色适配 ---------- */
+
+/* X6 画布容器透明，露出页面暗色基底 */
+.x6-graph {
+  background: transparent;
+}
+
+/* 工具栏（@antv/x6-react-components）：深色玻璃化。
+   注意：库默认 hover 是浅色（#262626 + #e0e0e0），覆盖时必须 !important 保证优先级 */
+.x6-toolbar {
+  background: rgba(16, 24, 44, 0.82) !important;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--yt-border) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 6px 24px rgba(2, 6, 18, 0.5) !important;
+  color: var(--yt-text-secondary);
+}
+
+.x6-toolbar .x6-toolbar-item {
+  color: var(--yt-text-secondary) !important;
+}
+
+.x6-toolbar .x6-toolbar-item:hover:not(.x6-toolbar-item-disabled),
+.x6-toolbar .x6-toolbar-item.x6-toolbar-item-active {
+  color: var(--yt-accent) !important;
+  background-color: var(--yt-accent-soft) !important;
+}
+
+.x6-toolbar .x6-toolbar-item.x6-toolbar-item-disabled,
+.x6-toolbar .x6-toolbar-item.x6-toolbar-item-disabled:hover {
+  color: var(--yt-text-muted) !important;
+  background-color: transparent !important;
+}
+
+/* 分组分隔线 */
+.x6-toolbar .x6-toolbar-group::before {
+  background-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+/* 缩放下拉菜单 */
+.x6-menu {
+  background: var(--yt-glass-strong) !important;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--yt-border) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 36px rgba(2, 6, 18, 0.6) !important;
+}
+
+.x6-menu .x6-menu-item-button {
+  color: var(--yt-text-secondary) !important;
+}
+
+.x6-menu .x6-menu-item:hover > .x6-menu-item-button,
+.x6-menu .x6-menu-item-active > .x6-menu-item-button {
+  color: var(--yt-accent) !important;
+  background: var(--yt-accent-soft) !important;
+}
+
+.x6-menu .x6-menu-item-divider {
+  background: rgba(148, 163, 184, 0.2) !important;
+}
+
+/* Stencil 图形库面板 */
+.x6-widget-stencil {
+  background: rgba(13, 19, 38, 0.72);
+  border-right: 1px solid var(--yt-border);
+}
+
+.x6-widget-stencil .x6-widget-stencil-title {
+  color: var(--yt-text-secondary);
+  border-bottom: 1px solid var(--yt-border);
+}
+
+.x6-widget-stencil .x6-widget-group-title {
+  color: var(--yt-text-muted);
+}
+
+/* 小地图 */
+.x6-widget-minimap {
+  background: rgba(16, 24, 44, 0.9) !important;
+  border: 1px solid var(--yt-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* scroller 分页线弱化 */
+.x6-widget-scrollerpagebreak {
+  border-color: rgba(148, 163, 184, 0.12);
+}
+
+/* 选中框/对齐线辉光色（X6 默认蓝色，保持即可，仅调透明度感受） */
+.x6-widget-selection-inner {
+  border-color: rgba(34, 211, 238, 0.55) !important;
+}
+
+.x6-widget-snapline-vertical,
+.x6-widget-snapline-horizontal {
+  border-color: rgba(34, 211, 238, 0.7) !important;
+}
+
+/* ===== 预览页（保存后落地页） ===== */
+
+/* 顶部玻璃工具栏 */
+.yt-preview-toolbar {
+  flex: 0 0 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 300;
+}
+
+/* 等宽技术标签（PREVIEW） */
+.yt-preview-tag {
+  padding: 2px 8px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--yt-accent);
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* 预览页小地图容器（右下角玻璃面板） */
+.yt-preview-minimap {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 200;
+  padding: 6px;
+  background: var(--yt-glass);
+  border: 1px solid var(--yt-border);
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* ===== 公开分享页（免登录只读查看） ===== */
+
+/* 顶栏玻璃横幅：品牌 + 项目名 + 注册转化 CTA（与预览页顶栏同构） */
+.yt-share-toolbar {
+  flex: 0 0 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 300;
+}
+
+/* 底部转化提示条：每张被分享的图都是获客入口 */
+.yt-share-footnote {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 150;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--yt-text-secondary);
+  white-space: nowrap;
+  background: var(--yt-glass);
+  border: 1px solid var(--yt-border);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+/* ===== 移动端适配（移动轻客户端策略） =====
+ * 断点 768px 与 useIsMobile hook 一致；
+ * 移动端只保留「查看 + AI 对话生成」核心场景，复杂编辑工具全部收纳。
+ */
+
+/* 编辑器移动端紧凑顶栏（替代桌面 X6 工具条） */
+.yt-editor-mobile-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(10, 15, 30, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--yt-border);
+}
+
+/* 编辑器移动端项目名徽章 */
+.yt-editor-mobile-name {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(16, 24, 44, 0.82);
+  border: 1px solid var(--yt-border);
+  color: var(--yt-text-primary);
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  /* 移动端隐藏项：打此 class 的元素在窄屏不渲染占位 */
+  .yt-hide-mobile {
+    display: none !important;
+  }
+
+  /* 首页外层容器：缩小安全边距 */
+  .yt-home-wrap {
+    padding: 16px 14px 32px !important;
+  }
+
+  /* 预览页/分享页顶栏：窄屏压缩内边距，项目名可收缩省略 */
+  .yt-preview-toolbar,
+  .yt-share-toolbar {
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  /* 分享页底部转化条：窄屏缩短文案宽度，避免遮画布 */
+  .yt-share-footnote {
+    max-width: calc(100vw - 24px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
+  }
+
+  /* AI 收起态悬浮球：避开拇指热区，留出安全距离 */
+  .yt-ai-orb {
+    right: 14px;
+    bottom: 18px;
+  }
+}
+
+/* ===== 免费档品牌水印（预览页 / 分享页 / 编辑器画布共用） =====
+ * 右下角低对比水印：不遮眼、不遮挡图内容；整层 pointer-events:none，
+ * 不拦截画布平移缩放与工具栏/浮窗交互；项目解锁后由调用方直接不渲染。
+ */
+
+.yt-watermark-overlay {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  color: rgba(148, 163, 184, 0.45);
+  text-align: right;
+  line-height: 1.35;
+}
+
+/* 主行：等宽小号 + 微弱辉光（克制） */
+.yt-watermark-main {
+  font-family: var(--yt-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 6px rgba(148, 163, 184, 0.18);
+  white-space: nowrap;
+}
+
+/* 小字「免费版」：更弱一档 */
+.yt-watermark-sub {
+  font-family: var(--yt-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+/* 紧凑模式：上移避让右下角悬浮面板（预览页小地图高约 120px / 编辑器 AI 悬浮球 52px） */
+.yt-watermark-overlay.yt-watermark-compact {
+  bottom: 140px;
+}
+
+/* 分享页底部转化条：允许内嵌「去免费生成」链接点击（覆盖基础段的 pointer-events:none） */
+.yt-share-footnote {
+  pointer-events: auto;
+}
+
+.yt-share-footnote-link {
+  margin-left: 10px;
+  color: var(--yt-accent);
+  font-size: 12px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.yt-share-footnote-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  /* 移动端水印：缩小字号并收回避让（小地图已隐藏，仅需避开 AI 悬浮球） */
+  .yt-watermark-overlay {
+    right: 8px;
+    bottom: 8px;
+  }
+
+  .yt-watermark-overlay.yt-watermark-compact {
+    bottom: 78px;
+  }
+
+  .yt-watermark-main {
+    font-size: 10px;
+    letter-spacing: 0.02em;
+  }
+
+  .yt-watermark-sub {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+}

@@ -28,6 +28,27 @@ export const CellAttrs = (props: attrProp) => {
   useEffect(() => {
     setAttrVisible(true);
   }, [setAttrVisible]);
+  // clickType === 3（点击画布空白处）时打开网格/背景设置，此时不依赖 nowCell
+  if (props.graph && props.clickType === 3) {
+    return (
+      <Drawer
+        visible={attrVisible}
+        onClose={() => {
+          setAttrVisible(false);
+        }}
+        mask={false}
+        maskClosable={false}
+        closeIcon={
+          <CloseOutlined style={{ position: "absolute", right: "20px", top: '10px' }} />
+        }
+        title={<div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--yt-text-secondary)' }}>画布属性</div>}
+        headerStyle={{ backgroundColor: 'rgba(16, 24, 44, 0.92)', height: '30px', borderBottom: '1px solid var(--yt-border)' }}
+        bodyStyle={{ backgroundColor: '#10182c', padding: 0 }}
+      >
+        <GridPanel graph={props.graph} />
+      </Drawer>
+    );
+  }
   if (props.graph && props.nowCell) {
     if (props.clickType === 1) {
       return (
@@ -41,9 +62,9 @@ export const CellAttrs = (props: attrProp) => {
           closeIcon={
             <CloseOutlined style={{ position: "absolute", right: "20px", top: '10px' }} />
           }
-          title={<div style={{ fontWeight: 700, fontSize: '14px', color: '#666' }}>节点属性</div>}
-          headerStyle={{ backgroundColor: '#EDEDED', height: '30px' }}
-          bodyStyle={{ backgroundColor: '#F5F5F5', padding: 0 }}
+          title={<div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--yt-text-secondary)' }}>节点属性</div>}
+          headerStyle={{ backgroundColor: 'rgba(16, 24, 44, 0.92)', height: '30px', borderBottom: '1px solid var(--yt-border)' }}
+          bodyStyle={{ backgroundColor: '#10182c', padding: 0 }}
         >
           <NodePanel
             graph={props.graph}
@@ -64,9 +85,9 @@ export const CellAttrs = (props: attrProp) => {
           closeIcon={
             <CloseOutlined style={{ position: "absolute", right: "20px", top: '10px' }} />
           }
-          title={<div style={{ fontWeight: 700, fontSize: '14px', color: '#666' }}>边属性</div>}
-          headerStyle={{ backgroundColor: '#EDEDED', height: '30px' }}
-          bodyStyle={{ backgroundColor: '#F5F5F5', padding: 0 }}
+          title={<div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--yt-text-secondary)' }}>边属性</div>}
+          headerStyle={{ backgroundColor: 'rgba(16, 24, 44, 0.92)', height: '30px', borderBottom: '1px solid var(--yt-border)' }}
+          bodyStyle={{ backgroundColor: '#10182c', padding: 0 }}
         >
           <EdgePanel
             graph={props.graph}
@@ -76,20 +97,8 @@ export const CellAttrs = (props: attrProp) => {
         </Drawer>
       );
     }
-    //  else if (props.clickType === 3) {
-    //   return (
-    //     <Drawer
-    //       visible={attrVisible}
-    //       onClose={() => {
-    //         setAttrVisible(false);
-    //       }}
-    //       mask={false}
-    //       maskClosable={false}
-    //     >
-    //       <GridPanel graph={props.graph} />
-    //     </Drawer>
-    //   );
-    // } 
+    // clickType === 3（网格/背景设置）的入口已上移到组件顶部提前 return，
+    // 因为该面板只需要 graph，不需要选中的 cell。
     else {
       return (<div />);
     }

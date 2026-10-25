@@ -56,10 +56,6 @@ dasddasdjlasd
 │              transform.interceptor.spec.ts
 │              transform.interceptor.ts
 │
-├─jwtRedis
-│      redis_cache.module.ts
-│      redis_cache.service.ts
-│
 ├─operationalModules  // 业务模块
 │  ├─editorDocument
 │  │  │  editor_document.controller.ts

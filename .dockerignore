@@ -1,0 +1,11 @@
+# 语图构建上下文排除项（backend/frontend 两个镜像共用）
+**/node_modules
+**/dist
+**/coverage
+.git
+**/.env
+**/.env.prod
+**/uploads
+**/logs
+**/*.log
+.DS_Store

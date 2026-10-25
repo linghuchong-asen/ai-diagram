@@ -1,0 +1,3 @@
+# pnpm 11 默认拒绝依赖的 postinstall 脚本，此处放行前端构建必需的 esbuild 二进制安装
+allowBuilds:
+  esbuild: true

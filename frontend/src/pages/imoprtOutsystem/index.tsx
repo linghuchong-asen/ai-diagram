@@ -1,8 +1,8 @@
 /*
  * @Author: yangsen
  * @Date: 2022-04-13 17:19:49
- * @LastEditTime: 2022-05-01 13:38:59
- * @Description: 导出外部系统
+ * @LastEditTime: 2026-10-20
+ * @Description: 导出外部系统 —— Neon Dark 暗色适配
  */
 
 import styled from "@emotion/styled";
@@ -13,18 +13,20 @@ import { OutSysLLGK } from "./outsystem/lianluguankong";
 export const ImportOutSystem = () => {
   const navigate = useNavigate();
   return (
-    <>
-      <SimpleTitle>X6JSON导入外部系统功能V1.0版本</SimpleTitle>
-      <div style={{ padding: 20 }}>
+    <div style={{ position: "relative", minHeight: "100vh", padding: "28px 32px 48px" }}>
+      <div className="yt-atmo" />
+      <PageHeader>
+        <div style={{ fontSize: 18, fontWeight: 600, color: "var(--yt-text-primary)" }}>
+          X6JSON 导入外部系统
+        </div>
         <Button
-          type="primary"
           onClick={() => {
             navigate("/");
           }}
         >
-          返回
+          返回图集
         </Button>
-      </div>
+      </PageHeader>
       <Container>
         <Tabs tabPosition="left" style={{ height: 400 }}>
           <Tabs.TabPane tab="数据治理系统" key="1">
@@ -32,17 +34,29 @@ export const ImportOutSystem = () => {
           </Tabs.TabPane>
         </Tabs>
       </Container>
-    </>
+    </div>
   );
 };
 
-const Container = styled.div`
-  width: 80%;
-  margin: 40px auto;
+const PageHeader = styled.header`
+  position: relative;
+  z-index: 1;
+  max-width: 1120px;
+  margin: 0 auto 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 `;
-const SimpleTitle = styled.header`
-  font-size: 23px;
-  color: #333333;
-  text-align: center;
-  padding-top: 10px;
+const Container = styled.div`
+  position: relative;
+  z-index: 1;
+  width: 80%;
+  margin: 0 auto;
+  padding: 22px 26px;
+  background: var(--yt-glass);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--yt-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 48px rgba(2, 6, 18, 0.55);
 `;

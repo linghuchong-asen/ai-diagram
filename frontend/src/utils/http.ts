@@ -10,6 +10,7 @@ import axios, {
   AxiosRequestHeaders,
   AxiosResponse,
 } from "axios";
+import { toHttpError } from "./aiClient";
 export interface normalResults {
   message: string;
 }
@@ -68,7 +69,9 @@ export const http = async <T>(
       responseData;
     return { data, code, message, responseHeaders: response.headers };
   } catch (err) {
-    throw new Error(typeof err === "string" ? err : JSON.stringify(err));
+    // JSON.stringify(axiosError) 恒为 "{}"，丢失全部信息；
+    // 统一转成 HttpError，保留可读 message、状态码与响应体摘要。
+    throw toHttpError(err);
   }
 };
 
@@ -78,12 +81,3 @@ export const onErrorTips = (error: { message: string }) => {
     description: error.message,
   });
 };
-
-// /** 用于下载文件的场景，返回的数据类型为Blob */
-// export const requestForFile = () => {
-//   const request =  axios.create({
-//     method: "get",
-//     baseURL: "/api",
-//     responseType: "blob",
-//   })
-// }

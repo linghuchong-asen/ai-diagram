@@ -1,16 +1,15 @@
-// apps/server/src/modules/ai/prompts/generate.prompt.ts
-import { PromptTemplate } from "@langchain/core/prompts";
+// 语图技术方案 - generate 场景提示词(大模型生成)
+// 由 agents/graph.ts 的 callLlm 消费(Task 9.3):统一从这里出消息数组,不再在编排层手拼 role。
+import { hasEmbeddedSystemPrompt, SYSTEM_PROMPT } from './system.prompt';
 
-export const generatePrompt = PromptTemplate.fromTemplate(`## Task
-Based on the user's intent, produce:
-1) plan_bullets: 3-5 bullet points of key decisions (concise).
-2) graph: flowchart JSON (nodes/edges).
-3) followups: 3-5 short, clickable questions.
-
-## User Intent
-{input}
-
-## Rules
-- Ensure a single start and end if applicable.
-- Use gateway for parallel/conditional branches.
-- Keep label short (<=12 chars).`);
+export function buildGeneratePrompt(input: {
+  context: string; // 已组装好的上下文(system + question + schema 引导 + history)
+}): Array<{ role: 'system' | 'user'; content: string }> {
+  // ContextBuilder 已把【系统指令】拼在上下文开头时不再重复注入,避免挤占 token 预算
+  const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
+  if (!hasEmbeddedSystemPrompt(input.context)) {
+    messages.push({ role: 'system', content: SYSTEM_PROMPT });
+  }
+  messages.push({ role: 'user', content: input.context });
+  return messages;
+}

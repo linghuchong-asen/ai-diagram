@@ -6,6 +6,8 @@
  */
 
 import { FormInstance, notification } from "antd";
+import axios from "axios";
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { tableDataProp } from ".";
 import { useNormalQueryOptions } from "../../utils/hooks/useQueryOptions";
@@ -36,6 +38,85 @@ export const useGetProject = (params: {
   );
 };
 
+/** 全文检索结果条目：GET /projectSearch/search 返回的 list 项 */
+export interface ProjectSearchItem {
+  projectId: string;
+  projectName: string;
+  projectDesc: string;
+  contentSnippet: string;
+  updateTime: string;
+  rank: number;
+}
+
+export interface SearchProjectsQueryData {
+  data: {
+    list: ProjectSearchItem[];
+    total: number;
+    query: string;
+  };
+}
+
+/** 主动取消检索请求时写入错误消息的前缀，onError 据此忽略被取消的请求 */
+const SEARCH_CANCELLED_FLAG = "[search-cancelled]";
+
+type SearchCancelSource = ReturnType<typeof axios.CancelToken.source>;
+
+// 最近一次在途检索请求的取消源（该 hook 仅 home 页一处使用），用于关键词变更/组件卸载时中止旧请求
+let searchAbortSource: SearchCancelSource | null = null;
+
+/**
+ * 项目全文检索（同时支持项目名称与项目内容），q 为空时由 enabled 保证不发起请求。
+ * 失败仅通过 onError 提示，不影响默认项目列表展示。
+ */
+export const useSearchProjects = (keyword: string) => {
+  const baseOptions = useNormalQueryOptions<SearchProjectsQueryData>();
+  const query = useQuery<SearchProjectsQueryData>(
+    ["useSearchProjects", keyword],
+    async () => {
+      // 新检索发起前，中止上一次仍在途的请求（关键词连续变更场景）
+      if (searchAbortSource) {
+        searchAbortSource.cancel(`${SEARCH_CANCELLED_FLAG} superseded`);
+      }
+      const source = axios.CancelToken.source();
+      searchAbortSource = source;
+      try {
+        return await http<SearchProjectsQueryData["data"]>("/projectSearch/search", {
+          params: { q: keyword, limit: 20 },
+          cancelToken: source.token,
+        });
+      } finally {
+        if (searchAbortSource === source) {
+          searchAbortSource = null;
+        }
+      }
+    },
+    {
+      ...baseOptions,
+      enabled: keyword.trim().length > 0,
+      retry: false,
+      onError: (error) => {
+        const message = (error as { message?: string })?.message;
+        if (typeof message === "string" && message.startsWith(SEARCH_CANCELLED_FLAG)) {
+          return;
+        }
+        baseOptions.onError?.(error);
+      },
+    }
+  );
+
+  // 组件卸载时中止仍在途的检索请求
+  useEffect(() => {
+    return () => {
+      if (searchAbortSource) {
+        searchAbortSource.cancel(`${SEARCH_CANCELLED_FLAG} unmount`);
+        searchAbortSource = null;
+      }
+    };
+  }, []);
+
+  return query;
+};
+
 /** 导出json文件功能 */
 export const useGetDownload = () => {
   return useMutation(
@@ -46,7 +127,6 @@ export const useGetDownload = () => {
         responseType: "blob",
       }),
     {
-      onSuccess: (response) => {},
       onError: onErrorTips,
     }
   );
@@ -138,11 +218,12 @@ export const useImportProject = (
           });
         }
       },
-      onError: (error: { response: { data: { message: string } } }) => {
-        // 错误触发！
+      onError: (error) => {
+        // http() 统一抛 HttpError（无 response 字段），安全读取错误信息
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
         notification["error"]({
           message: "发生错误",
-          description: error.response.data.message,
+          description: err?.response?.data?.message ?? err?.message ?? "导入失败",
         });
       },
     }

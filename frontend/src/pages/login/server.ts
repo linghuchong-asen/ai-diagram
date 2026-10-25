@@ -31,11 +31,12 @@ export const useLogin = (fromPath: string) => {
           });
         }
       },
-      onError: (error: { response: { data: { message: string } } }) => {
-        // 错误触发！
+      onError: (error) => {
+        // http() 统一抛 HttpError（无 response 字段），安全读取错误信息
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
         notification["error"]({
           message: "发生错误",
-          description: error.response.data.message,
+          description: err?.response?.data?.message ?? err?.message ?? "登录失败",
         });
       },
     }
@@ -63,12 +64,12 @@ export const useRegister = () => {
           });
         }
       },
-      onError: (error: { response: { data: { message: string } } }) => {
-        // 错误触发！
-        // note：这里就可以作为promise.catch使用
+      onError: (error) => {
+        // http() 统一抛 HttpError（无 response 字段），安全读取错误信息
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
         notification["error"]({
           message: "网络请求错误",
-          description: error.response.data.message,
+          description: err?.response?.data?.message ?? err?.message ?? "注册失败",
         });
       },
     }

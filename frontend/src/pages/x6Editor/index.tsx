@@ -8,15 +8,18 @@
 import { Cell, Graph } from "@antv/x6";
 import styled from "@emotion/styled";
 import { Row, Col, notification } from "antd";
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { getSVgImgUrl } from "../../utils";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useGraph } from "../../utils/hooks/useGraph";
-import { fromjsonData } from "../preView";
-import { useGetEditorData } from "../preView/server";
+import { useIsMobile } from "../../utils/hooks/useIsMobile";
+import { clearTrialDraft, readTrialDraft } from "../../utils/trialIdentity";
+import { dataClean, fromjsonData } from "../preView";
+import { useGetEditorData, useGetProjectInfo } from "../preView/server";
+import WatermarkOverlay from "../shared/WatermarkOverlay";
 import { CellAttrs } from "./components/configPanel";
 import { NodeTypes } from "./components/node_types";
 import ToolBar from "./components/toolBar";
+import AiFloatWindow from "../ai/ai_float_window";
 
 export interface nowNodePro {
   x: number;
@@ -40,7 +43,7 @@ export const ports = {
           magnet: true,
           stroke: "#31d0c6",
           strokeWidth: 2,
-          fill: "#fff",
+          fill: "#0a0f1e",
           visibility: "hidden",
         },
       },
@@ -53,7 +56,7 @@ export const ports = {
           magnet: true,
           stroke: "#31d0c6",
           strokeWidth: 2,
-          fill: "#fff",
+          fill: "#0a0f1e",
           visibility: "hidden",
         },
       },
@@ -66,7 +69,7 @@ export const ports = {
           magnet: true,
           stroke: "#31d0c6",
           strokeWidth: 2,
-          fill: "#fff",
+          fill: "#0a0f1e",
           visibility: "hidden",
         },
       },
@@ -79,7 +82,7 @@ export const ports = {
           magnet: true,
           stroke: "#31d0c6",
           strokeWidth: 2,
-          fill: "#fff",
+          fill: "#0a0f1e",
           visibility: "hidden",
         },
       },
@@ -112,26 +115,22 @@ export const X6Page = () => {
   const [attrVisible, setAttrVisible] = useState<boolean>(false);
   const [preData, setPreData] = useState<fromjsonData[]>([]);
   const [miniVisible, setMiniVisible] = useState<boolean>(true)
-
-  if (!projectid) {
-    notification.error({ message: '项目id为空' })
-  }
-  const { data: editorDataResponse } = useGetEditorData({ projectId: projectid as string });
+  // 移动端轻客户端策略：隐藏拖拽图形库（触屏不可用），画布占满全宽，
+  // AI 全屏对话成为移动端主入口，编辑动作收敛到顶栏紧凑工具条
+  const isMobile = useIsMobile();
 
   useEffect(() => {
-    // 处理获取到的editor数据
-    function dataClean(data: fromjsonData[]) {
-      const tempData: fromjsonData[] = JSON.parse(JSON.stringify(data));
-      const result = tempData.map((item) => {
-        if (item.shape === "image") {
-          const img = item.attrs.image["xlink:href"];
-          item.attrs.image["xlink:href"] = getSVgImgUrl(img);
-          console.log(getSVgImgUrl(img));
-        }
-        return item;
-      });
-      return result;
+    if (!projectid) {
+      notification.error({ message: '项目id为空' })
     }
+  }, [projectid]);
+  const { data: editorDataResponse } = useGetEditorData({ projectId: projectid as string });
+  /** 免费档判定：unlocked 后端并行开发中，防御式读取（undefined !== true → 视为未解锁，画布带水印） */
+  const { data: projectInfo } = useGetProjectInfo(projectid);
+  const unlocked = projectInfo?.data?.unlocked === true;
+
+  useEffect(() => {
+    // 处理获取到的editor数据（dataClean 与 preView 共用同一实现）
     if (editorDataResponse?.data) {
       const { editorData } = editorDataResponse.data;
       setPreData(dataClean(editorData));
@@ -142,35 +141,31 @@ export const X6Page = () => {
 
   // 业务特殊配置,需要拓展
   const configFun = (graph: Graph) => {
-    graph?.on("cell:mouseup", ({ e, x, y, cell }) => {
-      console.log(cell);
+    graph?.on("cell:mouseup", ({ x, y, cell }) => {
       setAttrVisible(true);
       if (cell.isEdge()) {
         setClickType(2);
         setCell({ x, y, cell });
       }
     });
-    graph?.on("cell:dblclick", ({ e, x, y, cell }) => {
+    // 双击：节点打开节点属性面板，边移除工具按钮（原先分散在两处注册同一事件，已合并）
+    graph.on("cell:dblclick", ({ x, y, cell }) => {
       if (cell.isNode()) {
         setClickType(1);
         setCell({ x, y, cell });
+      } else if (cell.isEdge()) {
+        cell.removeTools();
       }
     });
     graph?.on("blank:click", () => {
       setAttrVisible(true);
       setClickType(3);
-      console.log(graph.toJSON());
       const container = document.getElementById("container");
       const ports = container?.querySelectorAll(".x6-port-body");
       showPorts(ports, false);
       graph.getNodes().forEach((item) => {
         item.removeTools();
       });
-    });
-    graph.on("cell:dblclick", ({ e, x, y, cell }) => {
-      if (cell.isEdge()) {
-        cell.removeTools();
-      }
     });
     // 控制连接桩显示/隐藏
     const showPorts = (ports: any, show: boolean) => {
@@ -228,24 +223,58 @@ export const X6Page = () => {
     id: "container",
     callback: configFun,
   });
+
+  // 试用草稿继承（增长方案）：URL 带 ?draft=1 且本地存有试用草稿时，
+  // 画布就绪后用草稿初始化（只消费一次防重复应用）；应用成功后本会话内
+  // 不再回放服务端数据（新建项目服务端为空画布，避免异步载入把草稿冲掉）
+  const [searchParams] = useSearchParams();
+  const isDraftImport = searchParams.get("draft") === "1";
+  const draftCheckedRef = useRef(false);
+  const [draftApplied, setDraftApplied] = useState(false);
+
   useEffect(() => {
-    // 从数据库查询当前项目JSON数据，生成之前的链路图
     if (graph) {
-      console.log("重新生成画布");
-      graph?.fromJSON(preData);
+      if (isDraftImport && !draftCheckedRef.current) {
+        draftCheckedRef.current = true;
+        const draft = readTrialDraft();
+        if (draft && draft.editorData.length > 0) {
+          graph.fromJSON(draft.editorData as fromjsonData[]);
+          graph.centerContent();
+          clearTrialDraft();
+          setDraftApplied(true);
+          return;
+        }
+        // 无有效草稿（如刷新后已消费）：回落正常载入
+      }
+      if (!draftApplied) {
+        // 从数据库查询当前项目JSON数据，生成之前的链路图
+        graph?.fromJSON(preData);
+      }
     }
-  }, [graph, preData]);
+  }, [graph, preData, isDraftImport, draftApplied]);
 
   return (
     <div>
       <Container>
         <Row style={{ height: "100%", overflow: 'hidden' }}>
-          <Col span={4}>
-            <NodeTypes graph={graph} />
-          </Col>
-          <Col span={20}>
+          {/* 图形库（拖拽来源）：触屏拖拽不可用，移动端隐藏 */}
+          {!isMobile && (
+            <Col
+              span={4}
+              style={{
+                height: "100%",
+                background: "rgba(13, 19, 38, 0.55)",
+                borderRight: "1px solid var(--yt-border)",
+              }}
+            >
+              <NodeTypes graph={graph} />
+            </Col>
+          )}
+          <Col span={isMobile ? 24 : 20} style={{ position: "relative" }}>
             <div id="container" style={{ width: "100%", height: "100%" }} />
-            {ready && graph && projectid && projectName && <ToolBar graph={graph} projectid={projectid} projectName={projectName} miniVisible={miniVisible} setMiniVisible={setMiniVisible} />}
+            {/* 免费档水印：compact 上移避让 AI 悬浮球；pointer-events:none 天然不挡工具栏/浮窗交互 */}
+            {!unlocked && <WatermarkOverlay compact />}
+            {ready && graph && projectid && projectName && <ToolBar graph={graph} projectid={projectid} projectName={projectName} miniVisible={miniVisible} setMiniVisible={setMiniVisible} isMobile={isMobile} />}
           </Col>
           <CellAttrs
             clickType={clickType}
@@ -257,6 +286,8 @@ export const X6Page = () => {
         </Row>
       </Container>
       <MinimapContainer id="minimapContainer" style={{ display: miniVisible ? 'block' : 'none' }} />
+      {/* AI 浮窗：以 props 传入 graph 实例与 projectId（/editor/:projectid/:projectName 路由参数） */}
+      <AiFloatWindow graph={graph} projectId={projectid} />
     </div>
 
   );

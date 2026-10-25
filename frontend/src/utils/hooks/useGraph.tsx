@@ -6,8 +6,7 @@
  */
 import { Graph, Shape } from "@antv/x6";
 import { Options } from "@antv/x6/lib/graph/options";
-import { useMemo, useState } from "react";
-import { useMounted } from "..";
+import { useEffect, useState } from "react";
 import { getUid } from "../../pages/imoprtOutsystem/outsystem/G6translate";
 import { SimpleNodeView } from '../minimapView'
 
@@ -17,19 +16,30 @@ interface useGraphProps {
   isPreview?: boolean;
 }
 
+// 容器尚未完成布局时的兜底尺寸
+const FALLBACK_WIDTH = 1920;
+const FALLBACK_HEIGHT = 1080;
+
+// 画布尺寸跟随容器，而不是写死 1920x1080
+const getContainerSize = (container?: HTMLElement) => ({
+  width: container?.clientWidth || FALLBACK_WIDTH,
+  height: container?.clientHeight || FALLBACK_HEIGHT,
+});
+
 export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
   const [graph, setGraph] = useState<Graph>();
-  useMounted(() => {
+  useEffect(() => {
     const handle = document.getElementById(id) || undefined;
     const minimapContainer = document.getElementById('minimapContainer') || undefined;
+    const { width, height } = getContainerSize(handle);
 
     let graphOption: Partial<Options.Manual> = {};
 
     if (!isPreview) {
       graphOption = {
         container: handle,
-        width: 1920,
-        height: 1080,
+        width,
+        height,
         selecting: {
           enabled: true,
           rubberband: true, // 启用框选
@@ -43,10 +53,18 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
           enabled: true, // 选中之后可以实现拖拽大小
           preserveAspectRatio: true,
         },
+        // Neon Dark 画布：近黑深蓝底 + 低对比网格
+        background: {
+          color: "#0a0f1e",
+        },
         grid: {
           size: 10,
           visible: true,
           type: "mesh",
+          args: {
+            color: "#1e2a47",
+            thickness: 1,
+          },
         },
         // 剪切板
         clipboard: {
@@ -73,7 +91,8 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
               id: getUid(8),
               attrs: {
                 line: {
-                  stroke: "#A2B1C3",
+                  // 蓝灰边线：暗色画布与白底导出均可读
+                  stroke: "#7d8fb0",
                   strokeWidth: 2,
                   targetMarker: {
                     name: "block",
@@ -89,7 +108,7 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
                   attrs: {
                     label: {
                       text: "",
-                      fill: "#000000",
+                      fill: "#cbd5e1",
                       fontSize: 16,
                       fontWeight: 400,
                     },
@@ -127,8 +146,8 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
           // 是否启用画布平移能力（在空白位置按下鼠标后拖动平移画布），默认为 false。
           pannable: true,
           autoResize: false,
-          width: 1920,
-          height: 1080,
+          width,
+          height,
           padding: 1000
         },
         // 滚轮缩放
@@ -159,14 +178,11 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
           padding: 5,
           graphOptions: {
             async: true,
+            // 节点使用简化视图以提升小地图渲染性能；
+            // 边不再返回 null 屏蔽，走默认 EdgeView，使小地图能完整呈现连线。
             getCellView(cell) {
               if (cell.isNode()) {
                 return SimpleNodeView
-              }
-            },
-            createCellView(cell) {
-              if (cell.isEdge()) {
-                return null
               }
             },
           },
@@ -175,10 +191,20 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
     } else {
       graphOption = {
         container: handle,
+        width,
+        height,
+        // Neon Dark 画布：与编辑器同一套暗色基底
+        background: {
+          color: "#0a0f1e",
+        },
         grid: {
           size: 10,
           visible: true,
           type: "mesh",
+          args: {
+            color: "#1e2a47",
+            thickness: 1,
+          },
         },
         interacting: {
           nodeMovable: false,
@@ -197,7 +223,7 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
             return new Shape.Edge({
               attrs: {
                 line: {
-                  stroke: "#A2B1C3",
+                  stroke: "#7d8fb0",
                   strokeWidth: 2,
                   targetMarker: {
                     name: "block",
@@ -212,7 +238,7 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
                   attrs: {
                     label: {
                       text: "label",
-                      fill: "#000000",
+                      fill: "#cbd5e1",
                       fontSize: 16,
                       fontWeight: 500,
                     },
@@ -233,8 +259,8 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
           pageBreak: true,
           pannable: true,
           autoResize: false,
-          width: 1920,
-          height: 1080,
+          width,
+          height,
           padding: 1000
         },
         // 小地图
@@ -246,14 +272,11 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
           padding: 5,
           graphOptions: {
             async: true,
+            // 节点使用简化视图以提升小地图渲染性能；
+            // 边不再返回 null 屏蔽，走默认 EdgeView，使小地图能完整呈现连线。
             getCellView(cell) {
               if (cell.isNode()) {
                 return SimpleNodeView
-              }
-            },
-            createCellView(cell) {
-              if (cell.isEdge()) {
-                return null
               }
             },
           },
@@ -267,7 +290,36 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
       callback(temp);
     }
     setGraph(temp);
-  });
+
+    // 容器尺寸变化时同步画布（含 scroller），替代原先写死的 1920x1080
+    let observer: ResizeObserver | undefined;
+    let lastWidth = width;
+    let lastHeight = height;
+    if (handle && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => {
+        const nextWidth = handle.clientWidth;
+        const nextHeight = handle.clientHeight;
+        if (!nextWidth || !nextHeight) {
+          return;
+        }
+        if (nextWidth === lastWidth && nextHeight === lastHeight) {
+          return;
+        }
+        lastWidth = nextWidth;
+        lastHeight = nextHeight;
+        temp.resize(nextWidth, nextHeight);
+      });
+      observer.observe(handle);
+    }
+
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      }
+      temp.dispose();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return graph;
 };

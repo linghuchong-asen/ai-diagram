@@ -8,7 +8,7 @@
  */
 import { notification } from "antd";
 import { useMutation } from "react-query";
-import { http, onErrorTips } from "../../../utils/http";
+import { http } from "../../../utils/http";
 
 // todo:这里的导入指的是什么啊，还是通过MySQL
 export const useImport = () => {
@@ -19,18 +19,18 @@ export const useImport = () => {
         params,
       }),
     {
-      onSuccess: (response) => {
-        const { data, message } = response;
+      onSuccess: () => {
         notification["success"]({
           message: "提示",
           description: "导入成功！",
         });
       },
-      onError: (error: { response: { data: { message: string } } }) => {
-        // 错误触发！
+      onError: (error) => {
+        // http() 统一抛 HttpError（无 response 字段），安全读取错误信息
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
         notification["error"]({
           message: "发生错误",
-          description: error.response.data.message,
+          description: err?.response?.data?.message ?? err?.message ?? "导入失败",
         });
       },
     }

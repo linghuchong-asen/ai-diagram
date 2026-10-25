@@ -1,15 +1,15 @@
 /*
- * @Description: 登录页面
+ * @Description: 登录页面 —— Neon Dark 科技感版本（氛围背景 + 玻璃渐变描边卡片）
  * @Author: yangsen
  * @Date: 2024-11-26 09:53:12
  * @LastEditors: yangsen
- * @LastEditTime: 2024-11-28 15:04:48
+ * @LastEditTime: 2026-10-20
  */
-
 import { Form, Input, Button } from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useLogin } from "./server";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
+import BrandTitle from "../legal/brand";
 
 const Login = () => {
 
@@ -17,45 +17,107 @@ const Login = () => {
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
   const { mutateAsync: loginRequest } = useLogin(from);
   const onFinish = (values: any) => {
-    console.log("Received values of form: ", values);
-    loginRequest(values)
+    // 登录失败已由 useLogin 的 onError 统一提示，此处仅捕获避免 unhandled rejection
+    loginRequest(values).catch(() => undefined)
   };
 
   return (
     <div
       style={{
+        position: "relative",
+        minHeight: "100vh",
         display: "flex",
+        flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
-        height: "100vh",
+        padding: "24px 16px",
+        overflow: "hidden",
       }}
     >
-      <Form
-        name="login/register"
-        initialValues={{ remember: true }}
-        style={{ maxWidth: 360, width: "100%" }}
-        onFinish={onFinish}
-      >
-        <Form.Item
-          name="username"
-          rules={[{ required: true, message: "Please input your Username!" }]}
-        >
-          <Input prefix={<UserOutlined />} placeholder="Username" />
-        </Form.Item>
-        <Form.Item
-          name="password"
-          rules={[{ required: true, message: "Please input your Password!" }]}
-        >
-          <Input.Password prefix={<LockOutlined />} placeholder="Password" />
-        </Form.Item>
-        <Form.Item>
-          <Button block type="primary" htmlType="submit">
-            登录
-          </Button>
-          or <a href="/register">去注册!</a>
-        </Form.Item>
+      {/* 氛围背景：网格 + 光晕 + 扫描光束 */}
+      <div className="yt-atmo" />
 
-      </Form>
+      {/* 玻璃登录卡片（1px 渐变描边） */}
+      <div
+        className="yt-glass-border"
+        style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 400, padding: "40px 36px 26px" }}
+      >
+        <Form
+          name="login"
+          initialValues={{ remember: true }}
+          onFinish={onFinish}
+          requiredMark={false}
+        >
+          <BrandTitle />
+          <Form.Item
+            name="username"
+            rules={[{ required: true, message: "请输入用户名" }]}
+          >
+            <Input
+              size="large"
+              prefix={<UserOutlined style={{ color: "var(--yt-text-muted)" }} />}
+              placeholder="用户名"
+            />
+          </Form.Item>
+          <Form.Item
+            name="password"
+            rules={[{ required: true, message: "请输入密码" }]}
+          >
+            <Input.Password
+              size="large"
+              prefix={<LockOutlined style={{ color: "var(--yt-text-muted)" }} />}
+              placeholder="密码"
+            />
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 14, marginTop: 6 }}>
+            <Button
+              block
+              size="large"
+              type="primary"
+              className="yt-btn-primary"
+              htmlType="submit"
+            >
+              登 录
+            </Button>
+          </Form.Item>
+          <div style={{ textAlign: "center", fontSize: 13, color: "var(--yt-text-muted)" }}>
+            还没有账号？
+            <Link to="/register" style={{ marginLeft: 4 }}>立即注册</Link>
+          </div>
+        </Form>
+      </div>
+
+      {/* 卡片下方：产品能力等宽标语 */}
+      <div
+        className="yt-mono"
+        style={{
+          position: "relative",
+          zIndex: 1,
+          marginTop: 26,
+          fontSize: 11,
+          color: "var(--yt-text-muted)",
+          letterSpacing: "0.26em",
+          textAlign: "center",
+        }}
+      >
+        流式生成 · 人工确认 · 画布级编辑
+      </div>
+
+      {/* 底部协议 */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          marginTop: 12,
+          fontSize: 12,
+          color: "var(--yt-text-muted)",
+          textAlign: "center",
+        }}
+      >
+        登录/注册即代表你已阅读并同意
+        <a href="/agreement" target="_blank" rel="noopener noreferrer">《用户服务协议》</a>与
+        <a href="/privacy" target="_blank" rel="noopener noreferrer">《隐私政策》</a>
+      </div>
     </div>
   );
 };

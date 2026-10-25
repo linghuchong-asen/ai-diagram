@@ -1,28 +1,11 @@
 /*
  * @Author: yangsen
- * @Date: 2021-05-20 14:02:39
- * @LastEditTime: 2022-04-08 17:05:25
+ * @Date: 2021-05-20 10:53:29
+ * @LastEditTime: 2024-11-23 16:30:11
  * @Description: file content
  */
 import styled from "@emotion/styled";
-import { Button, Spin, Typography } from "antd";
-
-export const Row = styled.div<{
-  gap?: number | boolean;
-  between?: boolean;
-  marginBottom?: number;
-}>`
-  display: flex;
-  align-items: center;
-  justify-content: ${(props) => (props.between ? "space-between" : undefined)};
-  margin-bottom: ${(props) => props.marginBottom + "rem"};
-  > * {
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-    margin-right: ${(props) =>
-      typeof props.gap === "number" ? props.gap + "rem" : props.gap ? "2rem" : undefined};
-  }
-`;
+import { Typography } from "antd";
 
 const FullPage = styled.div`
   height: 100vh;
@@ -30,11 +13,6 @@ const FullPage = styled.div`
   justify-content: center;
   align-items: center;
 `;
-export const FullPageLoading = () => (
-  <FullPage>
-    <Spin size="large" />
-  </FullPage>
-);
 
 export const FullpageErrorFallback = ({ error }: { error: Error | null }) => (
   <FullPage>
@@ -42,9 +20,6 @@ export const FullpageErrorFallback = ({ error }: { error: Error | null }) => (
   </FullPage>
 );
 
-export const ButtonNoPadding = styled(Button)`
-  padding: 0;
-`;
 // 类型守卫
 const isError = (value: any): value is Error => value?.message;
 
@@ -54,4 +29,3 @@ export const ErrorBox = ({ error }: { error: unknown }) => {
   }
   return null;
 };
-

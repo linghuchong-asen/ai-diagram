@@ -3,22 +3,43 @@ import {
   Controller,
   Delete,
   Get,
+  Inject,
   Param,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { EditorDocumentService } from './editor_document.service';
 import { JwtAuthGuard } from 'src/auth/auth.guard';
 import type { SaveEditorDocumentDto } from './dto/save_editor_document.dto';
+import { ProjectEntity } from '../projectManager/entities/project_manager.entity';
+import { ensureProjectOwner } from '../projectManager/project-ownership';
 
 @Controller('editor') // 参数为路径
 export class EditorDocumentController {
-  constructor(private readonly editorDocumentService: EditorDocumentService) {}
+  constructor(
+    private readonly editorDocumentService: EditorDocumentService,
+    /* Task 11.2:归属校验需要查项目归属(editor_data 通过 projectId 关联 project) */
+    @InjectRepository(ProjectEntity)
+    private readonly projectRepository: Repository<ProjectEntity>,
+  ) {}
+
+  /** Task 11.2:projectId 归属校验 —— 当前用户 ≠ 项目归属 → 403(统一文案,不泄露资源存在性) */
+  private async assertProjectOwnership(projectId: string, userId?: string): Promise<void> {
+    if (!projectId || !userId) return;
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId },
+    });
+    ensureProjectOwner(project?.userId, userId);
+  }
 
   /** 保存编辑器文档 */
   @Post('saveEditorData')
   @UseGuards(JwtAuthGuard)
-  async saveEditorDocument(@Body() editorDocument: SaveEditorDocumentDto) {
+  async saveEditorDocument(@Body() editorDocument: SaveEditorDocumentDto, @Req() req) {
+    await this.assertProjectOwnership(editorDocument.projectId, req?.user?.id);
     const translateMongoData = {
       projectName: editorDocument.projectName,
       projectId: editorDocument.projectId,
@@ -33,7 +54,9 @@ export class EditorDocumentController {
   /* @Query获取查询参数，用于get,delete请求, @Param是获取指定路由参数,不能用于获取查询参数，用于get、post、put、delete请求体参数*/
   @Get('getEditorById/:id')
   @UseGuards(JwtAuthGuard)
-  async getEditorDocument(@Param('id') id: string) {
+  async getEditorDocument(@Param('id') id: string, @Req() req) {
+    // Task 11.2:查询前校验 projectId 归属
+    await this.assertProjectOwnership(id, req?.user?.id);
     const result = await this.editorDocumentService.getDocumentById(id);
     return result;
   }
@@ -41,7 +64,9 @@ export class EditorDocumentController {
   /** 根据id删除文档 */
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  async deleteDocumentById(@Param('id') id: string) {
+  async deleteDocumentById(@Param('id') id: string, @Req() req) {
+    // Task 11.2:删除前校验 projectId 归属(:id 即 projectId,见 service.removeById)
+    await this.assertProjectOwnership(id, req?.user?.id);
     return await this.editorDocumentService.removeById(id);
   }
 }

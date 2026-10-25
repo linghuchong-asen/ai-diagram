@@ -10,11 +10,13 @@ import { QueryClientProvider, QueryClient } from "react-query";
 import zhCN from "antd/lib/locale/zh_CN";
 import { ConfigProvider } from "antd";
 
+// QueryClient 在模块级创建单例，避免组件每次渲染都新建 client（缓存会随之丢失）
+const queryClient = new QueryClient();
+
 export const AppProviders = ({ children }: { children: ReactNode }) => {
   return (
     <ConfigProvider locale={zhCN}>
-      <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </ConfigProvider>
   );
 };
-

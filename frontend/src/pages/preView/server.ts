@@ -20,3 +20,24 @@ export const useGetEditorData = (params: { projectId: string }) => {
     useNormalQueryOptions({ enabled: params.projectId !== undefined })
   );
 };
+
+/**
+ * 单项目信息（预览页顶栏展示项目名 / 「继续编辑」回跳使用）。
+ * 后端 GET /project/:id 返回原始实体列：project_name / project_desc（snake_case）。
+ */
+interface ProjectInfoProp {
+  data: {
+    id: string;
+    project_name: string;
+    project_desc: string;
+    /** 免费档解锁标记（后端并行开发中）：true=已解锁，展示/导出均不带水印；字段未到位时按 undefined 防御式处理 */
+    unlocked?: boolean;
+  };
+}
+export const useGetProjectInfo = (projectId: string | undefined) => {
+  return useQuery<ProjectInfoProp>(
+    ["useGetProjectInfo", projectId],
+    () => http(`/project/${projectId}`),
+    useNormalQueryOptions({ enabled: projectId !== undefined })
+  );
+};

@@ -10,7 +10,6 @@ import {
   ClassSerializerInterceptor,
   UseGuards,
   Req,
-  Header,
   Res,
 } from '@nestjs/common';
 import { UserService } from './user.service';
@@ -18,6 +17,7 @@ import { CreateUserDto } from './dto/create_user.dto';
 import { UpdateUserDto } from './dto/update_user.dto';
 import { UserEntity } from './entities/user.entity';
 import { JwtAuthGuard } from 'src/auth/auth.guard';
+import { AuthRateLimitGuard } from 'src/auth/auth-rate-limit.guard';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -28,6 +28,8 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post('register')
+  // 商业化首发加固：注册限流（同 IP 10 分钟最多 5 次，防公开上线后批量刷号）
+  @UseGuards(AuthRateLimitGuard)
   async register(
     // @UploadedFiles() files: Express.Multer.File[],
     @Body() createUserDto: CreateUserDto,
@@ -92,7 +94,7 @@ export class UserController {
     const writeStream = fs.createWriteStream(path.join(uploadPath, filename));
     // note:将请求流直接写入文件,适用于客户端单独的上传一个文件的情况;另外一个方式是采用raw-body库封装一个中间件
     req.pipe(writeStream).on('error', (err) => {
-      console.error('Error writing to file:', err);
+      logger.error('Error writing to file:', err);
       res.status(500).send('Internal Server Error');
     });
 
@@ -101,7 +103,7 @@ export class UserController {
     });
 
     req.on('error', (err) => {
-      console.error('Upload error:', err);
+      logger.error('Upload error:', err);
       res.status(500).send({ error: 'File upload failed' });
     });
   }

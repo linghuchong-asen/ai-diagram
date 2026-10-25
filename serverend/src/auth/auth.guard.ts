@@ -5,11 +5,37 @@
  * @LastEditors: yangsen
  * @LastEditTime: 2025-06-10 15:07:44
  */
-import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
+import { IS_PUBLIC_KEY } from './public.decorator';
 
-
+// NOTE:@Injectable() 必须保留：tsc 仅对带装饰器的类发射 design:paramtypes 元数据，
+//       缺失会导致 DI 无法识别 Reflector 构造参数，注入 undefined，
+//       canActivate 里 this.reflector.getAllAndOverride 抛 TypeError → 所有鉴权路由 500。
+@Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
+  /* Task 11.1:支持 @Public() 装饰器豁免鉴权(SSE 端点浏览器无法携带 Authorization 头) */
+  constructor(private readonly reflector: Reflector) {
+    super();
+  }
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
+    return (await super.canActivate(context)) as boolean;
+  }
+
   getRequest(context: ExecutionContext) {
     const ctx = context.switchToHttp();
     const request = ctx.getRequest();

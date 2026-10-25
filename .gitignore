@@ -1,1 +1,20 @@
 /node_modules
+
+# 生产密钥配置（手册 9.1：严禁入库）
+.env.prod
+**/.env.prod
+
+# 构建 / 调试日志
+*.log
+*.err
+
+# 一次性临时脚本
+/serverend/test-boot.js
+/serverend/clean_tmp.ps1
+/serverend/install_deps.bat
+
+# 本地工具目录与包管理缓存（严禁入库）
+.pnpm-store/
+.codebuddy/
+.trae/
+.trae-html-share-packages/

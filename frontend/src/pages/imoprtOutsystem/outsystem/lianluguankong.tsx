@@ -5,14 +5,13 @@
  * @Description: 四川链路管控项目定制导入
  */
 
-import { Button, Card, Form, Select, Upload } from "antd";
+import { Button, Card, Form, Select, Upload, notification } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import styled from "@emotion/styled";
 import { beforeUplod, G6Translate } from "./G6translate";
 import { useForm } from "antd/lib/form/Form";
 import { useState } from "react";
 import { RcFile, UploadFile } from "antd/lib/upload/interface";
-import { useMounted } from "../../../utils";
 import { useImport } from "./server";
 
 interface onFinishProp {
@@ -64,16 +63,23 @@ export const OutSysLLGK = () => {
   const { mutateAsync } = useImport();
   // 点击导入按钮拿到数据。
   const onFinish = async ({ swjgDm, fileResult }: onFinishProp) => {
-    console.log([swjgDm, fileResult]);
-    const { file, fileList } = fileResult;
-    if (fileList.length === 0) return;
-    const resultJson = await G6Translate(file, fileList);
-    console.log(resultJson);
-    // 接下来就是调用后端接口了，用mutate的方式，如果成功了要提示导入成功的信息。
-    mutateAsync({
-      taxCode: swjgDm,
-      jsonData: resultJson,
-    });
+    try {
+      const { file, fileList } = fileResult;
+      if (fileList.length === 0) return;
+      const resultJson = await G6Translate(file, fileList);
+      // 接下来就是调用后端接口了，用mutate的方式，如果成功了要提示导入成功的信息。
+      // 导入失败已由 useImport 的 onError 统一提示，此处仅捕获避免 unhandled rejection
+      await mutateAsync({
+        taxCode: swjgDm,
+        jsonData: resultJson,
+      });
+    } catch (error) {
+      // 文件转换失败（G6Translate 内 JSON.parse 等）：明确提示
+      notification["error"]({
+        message: "文件解析失败",
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
   };
   return (
     <Container>

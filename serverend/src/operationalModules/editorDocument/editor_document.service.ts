@@ -1,61 +1,65 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { EditorDocument } from './schemas/editor_document.schema';
-import mongoose, { Model } from 'mongoose';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { EditorDocumentEntity } from './entities/editor_document.entity';
+import { ProjectSearchService } from '../projectSearch/project_search.service';
 
-const logger = new Logger('EditorDocumentService)');
-const ObjectId = mongoose.Types.ObjectId;
+const logger = new Logger('EditorDocumentService');
+
 @Injectable()
 export class EditorDocumentService {
   constructor(
-    // 将定义的EditorDocument作为依赖注入生成model
-    // ts的class类编译为js时，会转变为一个函数，函数的名字即为类名
-    @InjectModel(EditorDocument.name)
-    private editorDocumentModel: Model<EditorDocument>,
+    @InjectRepository(EditorDocumentEntity)
+    private readonly editorDocumentRepository: Repository<EditorDocumentEntity>,
+    private readonly projectSearchService: ProjectSearchService,
   ) {}
 
-  /** 保存编辑器文档 */
-  async save(editorDocumentData: EditorDocument) {
+  /** 保存编辑器文档(按 projectId upsert) */
+  async save(editorDocumentData: Partial<EditorDocumentEntity>) {
     const projectId = editorDocumentData.projectId;
-    const existProject = await this.editorDocumentModel
-      .findOne({ projectId })
-      .exec();
-    // 不存在时，existProject = null
-    if (existProject) {
-      // 更新文档
-      return this.editorDocumentModel
-        .updateOne({ projectId }, editorDocumentData)
-        .exec()
-        .catch((err) => {
-          logger.error('更新文档失败', err);
-        });
-    } else {
-      // 创建文档
-      try {
-        const createDocument = new this.editorDocumentModel(editorDocumentData);
-        const saveResult = await createDocument.save();
-        if (saveResult) return {};
-      } catch (err) {
-        logger.error('创建文档失败', err);
-        throw new HttpException('创建文档失败', 500);
+    try {
+      const existProject = await this.editorDocumentRepository.findOne({
+        where: { projectId },
+      });
+      if (existProject) {
+        // 更新文档
+        await this.editorDocumentRepository.update(
+          { projectId },
+          {
+            projectName: editorDocumentData.projectName,
+            editorData: editorDocumentData.editorData,
+          },
+        );
+        /* 画布内容变化后追加/更新全文检索索引(索引内部已捕获异常，不影响保存结果) */
+        await this.projectSearchService.indexEditorDocument(editorDocumentData);
+        return {};
+      } else {
+        // 创建文档
+        const createDocument = this.editorDocumentRepository.create(
+          editorDocumentData as EditorDocumentEntity,
+        );
+        const saveResult = await this.editorDocumentRepository.save(
+          createDocument,
+        );
+        if (saveResult) {
+          await this.projectSearchService.indexEditorDocument(
+            editorDocumentData,
+          );
+          return {};
+        }
       }
+    } catch (err) {
+      logger.error('保存文档失败', err);
+      throw new HttpException('保存文档失败', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
-  /** 根据id获取编辑器文档 */
-  async getDocumentById(id: string): Promise<EditorDocument> | null {
+  /** 根据项目id获取编辑器文档 */
+  async getDocumentById(id: string): Promise<EditorDocumentEntity | null> {
     try {
-      const existProject = await this.editorDocumentModel
-        .findOne({ projectId: id })
-        .exec()
-        .catch((err) => {
-          logger.error('根据id获取编辑器文档', err);
-        });
-      if (existProject) {
-        return existProject;
-      } else {
-        return null;
-      }
+      return await this.editorDocumentRepository.findOne({
+        where: { projectId: id },
+      });
     } catch (err) {
       logger.error('根据id获取编辑器文档', err);
       throw new HttpException('无效的文档 ID', HttpStatus.BAD_REQUEST);
@@ -65,9 +69,10 @@ export class EditorDocumentService {
   /** 根据项目id删除数据 */
   async removeById(projectId: string): Promise<any> {
     try {
-      return await this.editorDocumentModel
-        .findOneAndDelete({ projectId })
-        .exec();
+      const result = await this.editorDocumentRepository.delete({ projectId });
+      /* 文档删除后同步清理检索索引 */
+      await this.projectSearchService.removeIndex([projectId]);
+      return result;
     } catch (err) {
       logger.error('根据id删除文档', err);
       throw new HttpException(

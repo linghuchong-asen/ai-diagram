@@ -8,11 +8,10 @@
  */
 
 import { useEffect, useState } from "react";
-import { Tabs, Row, Col, Input, Slider, Select, Collapse } from "antd";
+import { Row, Col, Input, Slider, Select, Collapse } from "antd";
 import styled from "@emotion/styled";
 import { Cell, Graph, Edge } from "@antv/x6";
 import { CaretRightOutlined } from "@ant-design/icons";
-const { TabPane } = Tabs;
 const { Option } = Select;
 const { Panel } = Collapse;
 
@@ -20,14 +19,6 @@ interface position {
   x: number;
   y: number;
 }
-interface labelPosition {
-  distance: number,
-  offset: number | {
-    x?: number
-    y?: number
-  }
-}
-
 interface edgeAttrs {
   id?: string;
   edge_width: number;
@@ -52,14 +43,14 @@ const EdgePanel = (props: { id: string; cell: Cell<Cell.Properties>; graph: Grap
   const [attrs, setAttrs] = useState<edgeAttrs>({
     id: "",
     edge_width: 0,
-    edge_color: "#A2B1C3",
+    edge_color: "#7d8fb0",
     vertices: { x: 0, y: 0 },
     dasharray: "实线",
     connector: "jumpover",
     label: "",
     label_position: 0.5,
     label_offset: 0,
-    label_color: "#000000",
+    label_color: "#cbd5e1",
     font_size: 14,
     font_weight: 400,
   });
@@ -85,12 +76,12 @@ const EdgePanel = (props: { id: string; cell: Cell<Cell.Properties>; graph: Grap
           label: cell.getLabels()[0]?.attrs?.label.text as string,
           label_position: (cell.getLabels()[0].position as Edge.LabelPositionObject).distance,
           label_offset: (cell.getLabels()[0].position as Edge.LabelPositionObject).offset as number,
-          label_color: cell.getLabels()[0]?.attrs?.label.stroke as string,
+          // 边 label 颜色约定存于 labels[0].attrs.label.fill（与 useGraph.createEdge / to-x6.buildEdgeLabel 一致）
+          label_color: cell.getLabels()[0]?.attrs?.label.fill as string,
           font_size: cell.getLabels()[0]?.attrs?.label.fontSize as number,
           font_weight: cell.getLabels()[0]?.attrs?.label.fontWeight as number,
         });
       }
-      console.log(cell.getPolyline());
     }
   }, [cell, graph, id]);
   const setAttr = (key: string, val: number | string) => {
@@ -123,9 +114,6 @@ const EdgePanel = (props: { id: string; cell: Cell<Cell.Properties>; graph: Grap
   };
   const onLabelPositionChange = (e: { target: { value: string } }) => {
     const val = e.target.value;
-    console.log(
-      cell.getLabels()[0],
-    );
     cell.setLabelAt(0, {
       ...cell.getLabels()[0],
       position: {
@@ -137,7 +125,6 @@ const EdgePanel = (props: { id: string; cell: Cell<Cell.Properties>; graph: Grap
   };
   const onLabelOffsetChange = (e: { target: { value: string } }) => {
     const val = e.target.value;
-    console.log(val);
     cell.setLabelAt(0, {
       ...cell.getLabels()[0],
       position: {
@@ -149,10 +136,18 @@ const EdgePanel = (props: { id: string; cell: Cell<Cell.Properties>; graph: Grap
   };
   const onColorChange = (e: { target: { value: any } }) => {
     const val = e.target.value;
-    cell.attr("text/fill", val);
-    setAttr("color", val);
+    // 修复：原实现 cell.attr("text/fill") 无对应 selector，不会生效；
+    // 按项目约定写入 labels[0].attrs.label.fill，并同步 state key 为 label_color
+    cell.setLabelAt(0, {
+      ...cell.getLabels()[0],
+      attrs: {
+        ...cell.getLabels()[0].attrs,
+        label: { ...cell.getLabels()[0].attrs?.label, fill: val },
+      },
+    });
+    setAttr("label_color", val);
   };
-  const onFontSizeChange = (val: any) => {
+  const onFontSizeChange = (val: number) => {
     cell.setLabelAt(0, {
       ...cell.getLabels()[0],
       attrs: {
@@ -173,7 +168,6 @@ const EdgePanel = (props: { id: string; cell: Cell<Cell.Properties>; graph: Grap
     setAttr("font_weight", val);
   }
   const onConnectorChange = (param: string) => {
-    console.log(param);
     switch (param) {
       case "normal":
         cell.setConnector("normal");
@@ -212,7 +206,7 @@ const EdgePanel = (props: { id: string; cell: Cell<Cell.Properties>; graph: Grap
     <Collapse bordered={true} defaultActiveKey={["1"]} ghost={false} expandIcon={({ isActive }) => {
       return expandIcon(isActive)
     }}>
-      <Panel header="线条" key="1" style={{ backgroundColor: '#F5F5F5', }}>
+      <Panel header="线条" key="1" style={{ backgroundColor: '#18223d' }}>
         <Row align="middle" style={{ marginBottom: "5px" }}>
           <Col span={8}>Id</Col>
           <Col span={14}>
@@ -280,7 +274,7 @@ const EdgePanel = (props: { id: string; cell: Cell<Cell.Properties>; graph: Grap
           </Col>
         </PaddingRow>
       </Panel>
-      <Panel header="文本" key="2" style={{ backgroundColor: '#F5F5F5', }}>
+      <Panel header="文本" key="2" style={{ backgroundColor: '#18223d' }}>
         <PaddingRow align="middle" style={{ marginBottom: "5px" }}>
           <Col span={8}>内容</Col>
           <Col span={14}>

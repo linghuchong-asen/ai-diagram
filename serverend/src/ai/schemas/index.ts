@@ -1,4 +1,5 @@
-// apps/server/src/modules/ai/schemas/index.ts
-export * from './flow.schema';
+// 语图技术方案 - schemas 数据契约层统一出口
+export * from './node.schema';
+export * from './flow-draft.schema';
+export * from './patch.schema';
 export * from './chat.schema';
-export * from './ai_response.schema';

@@ -33,17 +33,25 @@ import { SkipInterceptor } from 'src/core/interceptor/skip.interceptor';
 const logger = new Logger('ProjectController');
 
 @Controller('project') // 路径为/project
-// @UseGuards(JwtAuthGuard)
+/* Task 11.2:项目路由启用 JWT 鉴权(security.md 鉴权与数据隔离) */
+@UseGuards(JwtAuthGuard)
 export class ProjectManagerController {
   constructor(private readonly projectService: ProjectManagerService) {}
+
+  /** 当前登录用户 id(JwtStrategy.validate 返回值挂在 req.user) */
+  private currentUserId(req: any): string | undefined {
+    return req?.user?.id != null ? String(req.user.id) : undefined;
+  }
 
   /** 新建项目 */
   /* @Body() 它的主要作用是从 HTTP 请求的请求体（Request Body）中提取数据，并将其传递给控制器方法中的参数。*/
   @Post()
   @UseInterceptors(ClassSerializerInterceptor)
-  async create(@Body() project: CreateProjectDto) {
+  async create(@Body() project: CreateProjectDto, @Req() req) {
     /* note：在 controller 中接收到的参数不会完成@Expose 中重新定义的字段名，且接收到的参数还是普通对象，在使用 plainToInStance(), instanceToPlain()方法时会完成字段名名的转换； */
     const projectEntityParam = plainToInstance(ProjectEntity, project);
+    /* Task 11.2:记录项目归属(创建人),供后续越权校验使用 */
+    projectEntityParam.userId = this.currentUserId(req);
     const createResult = await this.projectService.create(projectEntityParam);
     return createResult;
   }
@@ -52,40 +60,46 @@ export class ProjectManagerController {
   @Get()
   /* @Query() 装饰器用于从 HTTP 请求的查询字符串中提取参数。它可以从请求 URL 中获取所有查询参数，并将它们作为对象传递给方法参数 query。例如，如果请求 URL 是 http://example.com/api/posts?filter=active&page=1，那么 query 将是一个包含 filter 和 page 属性的对象 */
   @UseInterceptors(ClassSerializerInterceptor)
-  async findAll(@Query() query): Promise<ProjectRo> {
+  async findAll(@Query() query, @Req() req): Promise<ProjectRo> {
     const { pageSize, pageNumber } = query;
-    const findResult = await this.projectService.findAll({
-      pageSize,
-      pageNumber,
-    });
+    const findResult = await this.projectService.findAll(
+      {
+        pageSize,
+        pageNumber,
+      },
+      this.currentUserId(req),
+    );
     return findResult;
   }
 
- 
+
 
   /** 更新项目信息
    * @param id
    * @param post */
   @Put(':id')
-  async update(@Param('id') id, @Body() post) {
-    return await this.projectService.updateById(id, post);
+  async update(@Param('id') id, @Body() post, @Req() req) {
+    return await this.projectService.updateById(id, post, this.currentUserId(req));
   }
 
   /** 删除项目
    *  @param id
    */
   @Delete('delProject')
-  async remove(@Query() reqParams) {
+  async remove(@Query() reqParams, @Req() req) {
     const { projectIds } = reqParams;
-    return await this.projectService.removeById(projectIds);
+    return await this.projectService.removeById(projectIds, this.currentUserId(req));
   }
 
   /** 导出指定项目的编辑器json文件 */
   @Get('editDataFile')
   @SkipInterceptor()
-  async exportEditorDataFile(@Query() reqParams) {
+  async exportEditorDataFile(@Query() reqParams, @Req() req) {
     const { projectId } = reqParams;
-    const filePath = await this.projectService.exportEditorDataFile(projectId);
+    const filePath = await this.projectService.exportEditorDataFile(
+      projectId,
+      this.currentUserId(req),
+    );
     if (!filePath) {
       throw new HttpException(`id为${projectId}的项目不存在`, 404);
     }
@@ -122,8 +136,8 @@ export class ProjectManagerController {
    */
   /* 这个路由放在editDataFile路由后面，因为nest的路由是按注册顺序和字面匹配优先规则来的；:id是一个不确定的路由；应该放在确定性路由的后面，不然editDataFile路由会被:id路由错误的拦截到 */
   @Get(':id')
-  async findById(@Param('id') id) {
-    const projectResult = await this.projectService.findById(id);
+  async findById(@Param('id') id, @Req() req) {
+    const projectResult = await this.projectService.findById(id, this.currentUserId(req));
     return projectResult;
   }
 }

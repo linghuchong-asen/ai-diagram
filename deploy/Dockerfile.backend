@@ -1,0 +1,34 @@
+# ============ 构建阶段：全量依赖 + 编译 ============
+FROM node:22-alpine AS builder
+WORKDIR /build
+# npm/pnpm 统一走华为云镜像（与 serverend/.npmrc 一致），pnpm 版本固定
+ENV npm_config_registry=https://mirrors.huaweicloud.com/repository/npm/
+RUN npm install -g pnpm@12.14.0
+
+# 先复制依赖清单再 install，最大化利用 Docker 层缓存
+COPY serverend/package.json serverend/pnpm-lock.yaml serverend/pnpm-workspace.yaml serverend/.npmrc ./
+RUN pnpm install --frozen-lockfile
+
+# 复制源码并构建：nest build → dist/src/main.js、dist/config/env.js
+COPY serverend/ ./
+RUN pnpm build
+
+# ============ 运行阶段：仅生产依赖 + 产物 ============
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production TZ=Asia/Shanghai npm_config_registry=https://mirrors.huaweicloud.com/repository/npm/
+RUN apk add --no-cache tzdata && npm install -g pnpm@12.14.0
+
+# 按同一 lockfile 精确安装生产依赖
+COPY serverend/package.json serverend/pnpm-lock.yaml serverend/pnpm-workspace.yaml serverend/.npmrc ./
+RUN pnpm install --frozen-lockfile --prod
+
+# 编译产物：dist/src/main.js（入口）、dist/config/env.js
+COPY --from=builder /build/dist ./dist
+
+# 关键目录：uploads 与应用日志的挂载点
+# （代码以 __dirname 相对定位：容器内 /app/dist/src/* → /app/uploads、/app/dist/logs）
+RUN mkdir -p /app/uploads /app/dist/logs
+
+EXPOSE 3001
+CMD ["node", "dist/src/main.js"]

@@ -1,0 +1,78 @@
+# 语图生产编排。统一入口：
+#   docker compose --project-directory /root/.cache/yutu-runtime/app --env-file /root/.cache/yutu-runtime/app/.env.prod <cmd>
+# 路径说明：生产运行时根为 /root/.cache/yutu-runtime（沙箱运行时约定，
+# 仓库脚本 deploy/scripts/*.sh 与运维手册均按此路径维护）
+name: yutu
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: yutu-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWD}
+      POSTGRES_DB: ${DB_DATABASE}
+      TZ: Asia/Shanghai
+    volumes:
+      - /root/.cache/yutu-runtime/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    mem_limit: 768m
+    logging: *default-logging
+
+  backend:
+    image: yutu-backend:${YUTU_BACKEND_TAG}
+    container_name: yutu-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    volumes:
+      # NestJS 生产模式从 CWD 读取 .env.prod（config/env.ts 行为）
+      - /root/.cache/yutu-runtime/app/.env.prod:/app/.env.prod:ro
+      # 用户上传目录（multer 与静态服务共用 /app/uploads）
+      - /root/.cache/yutu-runtime/uploads:/app/uploads
+      # 应用日志（自定义 Logger 按日写 /app/dist/logs/<日期>/）
+      - /root/.cache/yutu-runtime/logs:/app/dist/logs
+    healthcheck:
+      # 商业化首发起改为专用存活探针 /health（SELECT 1 探 DB，DB 挂 → unhealthy）
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:3001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    mem_limit: 1280m
+    logging: *default-logging
+
+  nginx:
+    image: yutu-frontend:${YUTU_FRONTEND_TAG}
+    container_name: yutu-nginx
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - /root/.cache/yutu-runtime/logs/nginx:/var/log/nginx
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    mem_limit: 256m
+    logging: *default-logging
