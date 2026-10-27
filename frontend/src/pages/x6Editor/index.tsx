@@ -41,9 +41,9 @@ export const ports = {
         circle: {
           r: 3,
           magnet: true,
-          stroke: "#31d0c6",
+          stroke: "#7c86e8",
           strokeWidth: 2,
-          fill: "#0a0f1e",
+          fill: "#0b0c0e",
           visibility: "hidden",
         },
       },
@@ -54,9 +54,9 @@ export const ports = {
         circle: {
           r: 3,
           magnet: true,
-          stroke: "#31d0c6",
+          stroke: "#7c86e8",
           strokeWidth: 2,
-          fill: "#0a0f1e",
+          fill: "#0b0c0e",
           visibility: "hidden",
         },
       },
@@ -67,9 +67,9 @@ export const ports = {
         circle: {
           r: 3,
           magnet: true,
-          stroke: "#31d0c6",
+          stroke: "#7c86e8",
           strokeWidth: 2,
-          fill: "#0a0f1e",
+          fill: "#0b0c0e",
           visibility: "hidden",
         },
       },
@@ -80,9 +80,9 @@ export const ports = {
         circle: {
           r: 3,
           magnet: true,
-          stroke: "#31d0c6",
+          stroke: "#7c86e8",
           strokeWidth: 2,
-          fill: "#0a0f1e",
+          fill: "#0b0c0e",
           visibility: "hidden",
         },
       },
@@ -263,7 +263,7 @@ export const X6Page = () => {
               span={4}
               style={{
                 height: "100%",
-                background: "rgba(13, 19, 38, 0.55)",
+                background: "rgba(16, 17, 19, 0.85)",
                 borderRight: "1px solid var(--yt-border)",
               }}
             >

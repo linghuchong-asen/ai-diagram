@@ -45,7 +45,7 @@ export default function ArtifactCopyButton({ text, label = '复制 Markdown' }: 
       size="small"
       icon={copied ? <CheckOutlined /> : <CopyOutlined />}
       onClick={() => void handleCopy()}
-      style={{ borderColor: 'var(--yt-border)', color: copied ? 'var(--yt-accent)' : 'var(--yt-text-secondary)', background: 'rgba(30, 41, 66, 0.55)' }}
+      style={{ borderColor: 'var(--yt-border)', color: copied ? 'var(--yt-accent)' : 'var(--yt-text-secondary)', background: 'rgba(255, 255, 255, 0.04)' }}
     >
       {copied ? '已复制' : label}
     </Button>
@@ -75,7 +75,7 @@ export function ArtifactDownloadButton({ kind, payload, label = '下载 .md' }: 
       size="small"
       icon={<DownloadOutlined />}
       onClick={handleDownload}
-      style={{ borderColor: 'var(--yt-border)', color: 'var(--yt-text-secondary)', background: 'rgba(30, 41, 66, 0.55)' }}
+      style={{ borderColor: 'var(--yt-border)', color: 'var(--yt-text-secondary)', background: 'rgba(255, 255, 255, 0.04)' }}
     >
       {label}
     </Button>

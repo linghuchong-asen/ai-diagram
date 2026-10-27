@@ -790,11 +790,11 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
           flexShrink: 0,
           padding: '10px 14px',
           borderBottom: '1px solid var(--yt-border)',
-          background: 'rgba(8, 12, 24, 0.45)',
+          background: 'rgba(16, 17, 19, 0.92)',
         }}
       >
         <RobotOutlined
-          style={{ color: 'var(--yt-accent)', fontSize: 16, filter: 'drop-shadow(0 0 6px rgba(34, 211, 238, 0.6))' }}
+          style={{ color: 'var(--yt-accent)', fontSize: 16 }}
         />
         <span style={{ marginLeft: 8, fontSize: 14, fontWeight: 600, color: 'var(--yt-text-primary)' }}>
           AI 流程图助手
@@ -888,7 +888,7 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
                 <div
                   className="yt-bubble-ai"
                   style={{
-                    borderColor: 'rgba(34, 211, 238, 0.35)',
+                    borderColor: 'var(--yt-border-bright)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'flex-start',
@@ -959,7 +959,7 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
         )}
         {phase === 'running' ? (
           <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 8 }}>
-            <div className="yt-bubble-ai" style={{ borderColor: 'rgba(34, 211, 238, 0.25)' }}>
+            <div className="yt-bubble-ai" style={{ borderColor: 'var(--yt-border)' }}>
               <div
                 className="yt-mono"
                 style={{ fontSize: 9, letterSpacing: '0.2em', color: 'var(--yt-accent)', opacity: 0.8, marginBottom: 4 }}
@@ -994,7 +994,7 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
             borderRadius: 10,
             padding: 10,
             flexShrink: 0,
-            background: 'rgba(13, 19, 38, 0.6)',
+            background: 'rgba(16, 17, 19, 0.85)',
           }}
         >
           <div
@@ -1042,7 +1042,7 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
             padding: '4px 14px 6px',
             flexShrink: 0,
             borderTop: '1px solid var(--yt-border)',
-            background: 'rgba(8, 12, 24, 0.45)',
+            background: 'rgba(16, 17, 19, 0.92)',
           }}
         >
           <span className="yt-mono" style={{ fontSize: 10, color: 'var(--yt-text-muted)', letterSpacing: '0.1em' }}>
@@ -1071,7 +1071,7 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
           flexShrink: 0,
           padding: '10px 14px',
           borderTop: '1px solid var(--yt-border)',
-          background: 'rgba(8, 12, 24, 0.45)',
+          background: 'rgba(16, 17, 19, 0.92)',
         }}
       >
         <Input.TextArea
@@ -1088,7 +1088,7 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
           }}
           style={{
             flex: 1,
-            background: 'rgba(30, 41, 66, 0.55)',
+            background: 'rgba(255, 255, 255, 0.04)',
             borderColor: 'var(--yt-border)',
             color: 'var(--yt-text-primary)',
             borderRadius: 10,
@@ -1110,7 +1110,7 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
             textAlign: 'right',
             letterSpacing: '0.1em',
             flexShrink: 0,
-            background: 'rgba(8, 12, 24, 0.45)',
+            background: 'rgba(16, 17, 19, 0.92)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
@@ -1123,9 +1123,9 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
             <span
               className="yt-chip"
               style={{
-                color: 'var(--yt-accent, #22d3ee)',
+                color: 'var(--yt-accent)',
                 cursor: (vipDaysLeftState ?? 99) <= 3 ? 'pointer' : 'default',
-                border: (vipDaysLeftState ?? 99) <= 3 ? '1px solid var(--yt-accent, #22d3ee)' : undefined,
+                border: (vipDaysLeftState ?? 99) <= 3 ? '1px solid var(--yt-accent)' : undefined,
               }}
               title={
                 (vipDaysLeftState ?? 99) <= 3
@@ -1144,7 +1144,7 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
             checkinState.checkedToday ? (
               <span
                 className="yt-chip"
-                style={{ color: 'var(--yt-accent, #22d3ee)', cursor: 'default' }}
+                style={{ color: 'var(--yt-accent)', cursor: 'default' }}
                 title={`已连续签到 ${checkinState.streak} 天；每满 7 天送 1 天会员`}
               >
                 已连签 {checkinState.streak} 天
@@ -1152,7 +1152,7 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
             ) : (
               <span
                 className="yt-chip"
-                style={{ color: 'var(--yt-accent, #22d3ee)' }}
+                style={{ color: 'var(--yt-accent)' }}
                 onClick={handleCheckin}
                 title="每日签到 +1 次生成；连签满 7 天送 1 天会员"
               >
@@ -1212,7 +1212,7 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
                     border: '1px solid var(--yt-border)',
                     borderRadius: 8,
                     padding: '8px 10px',
-                    background: 'rgba(30, 41, 66, 0.45)',
+                    background: 'rgba(255, 255, 255, 0.03)',
                   }}
                 >
                   <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--yt-text-primary)' }}>

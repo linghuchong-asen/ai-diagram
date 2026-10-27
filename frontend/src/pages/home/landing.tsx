@@ -4,7 +4,7 @@
  * 快赢批次一(QW6)：快捷 chips 改为 4 组场景（校园毕设/职场/电商/研发）按天轮换，
  * 每组都是完整可编辑的场景化 prompt（豆包式「预判下一步」），占位文案同步轮换 ——
  * 不同日期来访看到不同场景，提升「点一下就能试」的命中率。
- * 设计语言：Neon Dark（yt-atmo 氛围背景 + 玻璃 hero + 电光青 CTA），与登录页同构。
+ * 设计语言：Quiet Dark（yt-atmo 氛围背景 + 发丝线面板 + 纯色大标题），与登录页同构。
  */
 
 import {
@@ -233,26 +233,21 @@ const HeroPanel = styled.section`
   }
 `;
 
-/** Hero 顶部等宽小标签 */
+/** Hero 顶部等宽小标签（安静：弱化色 + 收敛字距） */
 const HeroTag = styled.div`
   font-size: 10px;
-  letter-spacing: 0.28em;
-  color: var(--yt-accent);
-  opacity: 0.85;
+  letter-spacing: 0.18em;
+  color: var(--yt-text-muted);
   margin-bottom: 18px;
 `;
 
-/** 大标语：品牌渐变 */
+/** 大标语：纯色大字、收紧字距（Quiet Dark：不用渐变字与文字辉光） */
 const HeroTitle = styled.h1`
   margin: 0 0 14px;
   font-size: 40px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  background: linear-gradient(135deg, #22d3ee 10%, #818cf8 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 22px rgba(34, 211, 238, 0.28));
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--yt-text-primary);
   @media (max-width: 768px) {
     font-size: 26px;
   }
@@ -276,14 +271,14 @@ const InputRow = styled.div`
   gap: 12px;
   align-items: stretch;
   .ant-input {
-    background: rgba(30, 41, 66, 0.55);
+    background: rgba(255, 255, 255, 0.04);
     border-color: var(--yt-border);
     color: var(--yt-text-primary);
   }
   .ant-input:focus,
   .ant-input-focused {
-    border-color: rgba(34, 211, 238, 0.55);
-    box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.12);
+    border-color: var(--yt-accent);
+    box-shadow: 0 0 0 3px var(--yt-accent-soft);
   }
   @media (max-width: 768px) {
     flex-direction: column;

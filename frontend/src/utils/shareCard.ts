@@ -16,14 +16,14 @@ export const CARD_HEIGHT = 1440;
 
 /** 卡片主题色（与站点 Neon Dark 同源） */
 const CARD_COLORS = {
-  bg: "#0a0f1e",
-  bgGlow1: "rgba(34, 211, 238, 0.10)",
-  bgGlow2: "rgba(129, 140, 248, 0.08)",
+  bg: "#0b0c0e",
+  bgGlow1: "rgba(124, 134, 232, 0.10)",
+  bgGlow2: "rgba(124, 134, 232, 0.06)",
   grid: "rgba(148, 163, 184, 0.05)",
-  title: "#e2e8f0",
+  title: "#f0f1f3",
   sub: "#94a3b8",
-  accent: "#22d3ee",
-  frame: "rgba(34, 211, 238, 0.28)",
+  accent: "#7c86e8",
+  frame: "rgba(124, 134, 232, 0.30)",
 } as const;
 
 /**

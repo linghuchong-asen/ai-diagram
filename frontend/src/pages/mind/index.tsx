@@ -198,12 +198,9 @@ const HeroTag = styled.div`
 const HeroTitle = styled.h1`
   margin: 0 0 10px;
   font-size: 30px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  background: linear-gradient(135deg, #22d3ee 10%, #818cf8 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-weight: 600;?
+  letter-spacing: -0.01em;
+  color: var(--yt-text-primary);
   @media (max-width: 768px) {
     font-size: 22px;
   }

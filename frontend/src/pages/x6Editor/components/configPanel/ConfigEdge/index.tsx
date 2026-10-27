@@ -206,7 +206,7 @@ const EdgePanel = (props: { id: string; cell: Cell<Cell.Properties>; graph: Grap
     <Collapse bordered={true} defaultActiveKey={["1"]} ghost={false} expandIcon={({ isActive }) => {
       return expandIcon(isActive)
     }}>
-      <Panel header="线条" key="1" style={{ backgroundColor: '#18223d' }}>
+      <Panel header="线条" key="1" style={{ backgroundColor: '#15171a' }}>
         <Row align="middle" style={{ marginBottom: "5px" }}>
           <Col span={8}>Id</Col>
           <Col span={14}>
@@ -274,7 +274,7 @@ const EdgePanel = (props: { id: string; cell: Cell<Cell.Properties>; graph: Grap
           </Col>
         </PaddingRow>
       </Panel>
-      <Panel header="文本" key="2" style={{ backgroundColor: '#18223d' }}>
+      <Panel header="文本" key="2" style={{ backgroundColor: '#15171a' }}>
         <PaddingRow align="middle" style={{ marginBottom: "5px" }}>
           <Col span={8}>内容</Col>
           <Col span={14}>

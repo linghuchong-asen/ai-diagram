@@ -37,8 +37,7 @@ export default function TimelineView({ draft }: TimelineViewProps) {
                 marginTop: 4,
                 borderRadius: '50%',
                 border: '2px solid var(--yt-accent)',
-                background: '#0d1426',
-                boxShadow: '0 0 6px rgba(34, 211, 238, 0.5)',
+                background: '#15171a',
               }}
             />
             <span style={{ flex: 1, minWidth: 0 }}>

@@ -174,12 +174,9 @@ const HeroTag = styled.div`
 const HeroTitle = styled.h1`
   margin: 0 0 12px;
   font-size: 32px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  background: linear-gradient(135deg, #22d3ee 10%, #818cf8 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-weight: 600;?
+  letter-spacing: -0.01em;
+  color: var(--yt-text-primary);
   @media (max-width: 768px) {
     font-size: 22px;
   }
@@ -230,7 +227,7 @@ const CustomRow = styled.div`
   gap: 12px;
   margin-top: 24px;
   .ant-input {
-    background: rgba(30, 41, 66, 0.55);
+    background: rgba(255, 255, 255, 0.04);
     border-color: var(--yt-border);
     color: var(--yt-text-primary);
   }

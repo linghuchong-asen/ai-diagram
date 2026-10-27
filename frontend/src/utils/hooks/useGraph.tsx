@@ -53,16 +53,16 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
           enabled: true, // 选中之后可以实现拖拽大小
           preserveAspectRatio: true,
         },
-        // Neon Dark 画布：近黑深蓝底 + 低对比网格
+        // Quiet Dark 画布：真中性近黑底 + 低对比网格
         background: {
-          color: "#0a0f1e",
+          color: "#0b0c0e",
         },
         grid: {
           size: 10,
           visible: true,
           type: "mesh",
           args: {
-            color: "#1e2a47",
+            color: "#202227",
             thickness: 1,
           },
         },
@@ -92,7 +92,7 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
               attrs: {
                 line: {
                   // 蓝灰边线：暗色画布与白底导出均可读
-                  stroke: "#7d8fb0",
+                  stroke: "#8a8f98",
                   strokeWidth: 2,
                   targetMarker: {
                     name: "block",
@@ -108,7 +108,7 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
                   attrs: {
                     label: {
                       text: "",
-                      fill: "#cbd5e1",
+                      fill: "#d7d9dd",
                       fontSize: 16,
                       fontWeight: 400,
                     },
@@ -195,14 +195,14 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
         height,
         // Neon Dark 画布：与编辑器同一套暗色基底
         background: {
-          color: "#0a0f1e",
+          color: "#0b0c0e",
         },
         grid: {
           size: 10,
           visible: true,
           type: "mesh",
           args: {
-            color: "#1e2a47",
+            color: "#202227",
             thickness: 1,
           },
         },
@@ -223,7 +223,7 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
             return new Shape.Edge({
               attrs: {
                 line: {
-                  stroke: "#7d8fb0",
+                  stroke: "#8a8f98",
                   strokeWidth: 2,
                   targetMarker: {
                     name: "block",
@@ -238,7 +238,7 @@ export const useGraph = ({ id, callback, isPreview }: useGraphProps) => {
                   attrs: {
                     label: {
                       text: "label",
-                      fill: "#cbd5e1",
+                      fill: "#d7d9dd",
                       fontSize: 16,
                       fontWeight: 500,
                     },

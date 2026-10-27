@@ -1,44 +1,52 @@
 /* ==========================================================================
-   语图 Neon Dark 设计系统（2026 科技感改造）
-   设计原则（源自竞品调研：Whimsical/Eraser/Napkin + 2026 暗色 SaaS 趋势）：
-     · 近黑深蓝基底，明度阶梯分层（拒绝纯黑）
-     · 单一电光青强调色 + 克制辉光（呼应 X6 连接桩 #31d0c6）
-     · 玻璃拟态面板（backdrop-blur + 半透明填充）
-     · 1px 渐变描边作为品牌签名
-     · off-white 文字阶梯，绝不用纯白
-     · 等宽字体做技术标签
+   语图 Quiet Dark 设计系统（2026 暗色极简改版）
+   设计原则（对齐 Linear / Vercel / Eraser 一类高级工具站的做减法思路）：
+     · 真中性近黑基底（去掉蓝紫倾向），明度阶梯分层
+     · 单一克制靛蓝强调色，只出现在 logo / 主按钮焦点 / 关键连线等少数位置
+     · 纯色大标题（收紧字距），绝不用渐变字与文字辉光
+     · 发丝线描边（hairline border）代替玻璃拟态 + 辉光堆料
+     · 主按钮为「白底深字」高对比样式；动效克制，无呼吸/扫描等循环动画
+     · off-white 文字阶梯，绝不用纯白；等宽字体仅做小号技术标签
    引入顺序：必须在 antd.dark.css 之后（App.tsx 中保证），此处覆盖优先。
    ========================================================================== */
 
 :root {
-  /* 基底（近黑深蓝明度阶梯） */
-  --yt-bg-deep: #070b14;
-  --yt-bg-base: #0a0f1e;
-  --yt-bg-panel: #10182c;
-  --yt-bg-elevated: #18223d;
+  /* 基底（真中性近黑明度阶梯） */
+  --yt-bg-deep: #08090b;
+  --yt-bg-base: #0b0c0e;
+  --yt-bg-panel: #101113;
+  --yt-bg-elevated: #15171a;
 
-  /* 玻璃面板填充 */
-  --yt-glass: rgba(16, 24, 44, 0.78);
-  --yt-glass-strong: rgba(18, 27, 49, 0.94);
+  /* 面板填充（历史命名保留 glass，实际为近实心面板，保证画布上层内容可读） */
+  --yt-glass: rgba(16, 17, 19, 0.92);
+  --yt-glass-strong: rgba(18, 19, 22, 0.97);
 
-  /* 描边 */
-  --yt-border: rgba(148, 163, 184, 0.16);
-  --yt-border-bright: rgba(148, 163, 184, 0.30);
+  /* 描边（发丝线） */
+  --yt-border: rgba(255, 255, 255, 0.08);
+  --yt-border-bright: rgba(255, 255, 255, 0.16);
 
-  /* 强调色：电光青 */
-  --yt-accent: #22d3ee;
-  --yt-accent-deep: #0891b2;
-  --yt-accent-soft: rgba(34, 211, 238, 0.14);
-  --yt-accent-glow: rgba(34, 211, 238, 0.40);
+  /* 强调色：克制靛蓝（仅少量位置使用） */
+  --yt-accent: #7c86e8;
+  --yt-accent-deep: #5a63c9;
+  --yt-accent-soft: rgba(124, 134, 232, 0.13);
+  --yt-accent-glow: rgba(124, 134, 232, 0.25);
 
-  /* 品牌渐变 */
-  --yt-gradient: linear-gradient(135deg, #06b6d4 0%, #6366f1 100%);
-  --yt-gradient-hover: linear-gradient(135deg, #22d3ee 0%, #818cf8 100%);
+  /* 历史渐变令牌：收敛为强调色实色，老引用自动降级为单色 */
+  --yt-gradient: #7c86e8;
+  --yt-gradient-hover: #5a63c9;
+
+  /* 主按钮：白底深字（高级工具站通行的强对比主操作样式） */
+  --yt-btn-primary-bg: #f2f3f5;
+  --yt-btn-primary-fg: #0b0c0e;
+
+  /* 会话气泡：用户侧用低饱和靛蓝实色，与强调色同源 */
+  --yt-bubble-user-bg: #3d4577;
+  --yt-bubble-user-fg: #f0f1f3;
 
   /* 文字（off-white 阶梯） */
-  --yt-text-primary: #e6ecf8;
-  --yt-text-secondary: #94a3b8;
-  --yt-text-muted: #5d6b84;
+  --yt-text-primary: #f0f1f3;
+  --yt-text-secondary: #9ba0a8;
+  --yt-text-muted: #62666e;
 
   /* 等宽技术字体 */
   --yt-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code',
@@ -65,14 +73,15 @@ a {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.32);
+  background: rgba(255, 255, 255, 0.22);
 }
 
-/* ---------- 氛围背景（登录/注册/首页/法务页共用） ---------- */
+/* ---------- 氛围背景（登录/注册/首页/法务页共用） ----------
+   极简处理：纯净近黑底 + 顶部一点无彩色微光，去掉网格/光晕/扫描光束 */
 
 .yt-atmo {
   position: fixed;
@@ -81,91 +90,45 @@ a {
   overflow: hidden;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 55% 38% at 18% -4%, rgba(34, 211, 238, 0.13), transparent 62%),
-    radial-gradient(ellipse 48% 34% at 88% 8%, rgba(99, 102, 241, 0.13), transparent 64%),
-    radial-gradient(ellipse 70% 50% at 50% 112%, rgba(30, 58, 138, 0.20), transparent 70%),
+    radial-gradient(720px 320px at 50% -90px, rgba(255, 255, 255, 0.045), transparent 70%),
     var(--yt-bg-deep);
 }
 
-/* 细网格（低对比，中心向四周衰减） */
-.yt-atmo::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px);
-  background-size: 44px 44px;
-  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 28%, #000 30%, transparent 100%);
-  mask-image: radial-gradient(ellipse 90% 70% at 50% 28%, #000 30%, transparent 100%);
-}
+/* ---------- 面板 ---------- */
 
-/* 顶部扫描光束（克制：低透明度缓慢横移） */
-.yt-atmo::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 40%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), transparent);
-  animation: yt-scan 9s linear infinite;
-  opacity: 0.6;
-}
-
-@keyframes yt-scan {
-  0% {
-    transform: translateX(-120%);
-  }
-  100% {
-    transform: translateX(320%);
-  }
-}
-
-/* ---------- 玻璃面板 ---------- */
-
-/* 基础玻璃卡片 */
+/* 基础面板：实色 + 发丝线，去掉毛玻璃与浮夸投影 */
 .yt-glass {
   background: var(--yt-glass);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
   border: 1px solid var(--yt-border);
-  border-radius: 16px;
-  box-shadow:
-    0 12px 48px rgba(2, 6, 18, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 
-/* 品牌签名：1px 渐变描边玻璃卡（双背景 padding-box/border-box 技巧） */
+/* 历史签名类（原 1px 渐变描边玻璃卡）：统一降级为发丝线面板 */
 .yt-glass-border {
-  border: 1px solid transparent;
-  border-radius: 16px;
-  background:
-    linear-gradient(rgba(14, 20, 38, 0.92), rgba(14, 20, 38, 0.92)) padding-box,
-    linear-gradient(150deg, rgba(34, 211, 238, 0.65), rgba(99, 102, 241, 0.45) 46%, rgba(148, 163, 184, 0.14)) border-box;
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
-  box-shadow:
-    0 16px 56px rgba(2, 6, 18, 0.62),
-    0 0 0 1px rgba(34, 211, 238, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--yt-border-bright);
+  border-radius: 14px;
+  background: var(--yt-glass);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
 }
 
-/* ---------- 品牌按钮（覆盖 antd primary，用于核心 CTA） ---------- */
+/* ---------- 品牌按钮（覆盖 antd primary，用于核心 CTA） ----------
+   白底深字 + 悬停提亮，去掉渐变与辉光 */
 
 .yt-btn-primary.ant-btn-primary {
-  background: var(--yt-gradient);
+  background: var(--yt-btn-primary-bg);
+  color: var(--yt-btn-primary-fg);
   border: none;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  box-shadow: 0 4px 20px rgba(34, 211, 238, 0.28);
-  transition: all 0.25s ease;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  transition: background 0.18s ease, transform 0.18s ease;
 }
 
 .yt-btn-primary.ant-btn-primary:hover,
 .yt-btn-primary.ant-btn-primary:focus {
-  background: var(--yt-gradient-hover);
-  box-shadow: 0 6px 28px rgba(34, 211, 238, 0.45);
+  background: #ffffff;
+  color: var(--yt-btn-primary-fg);
   transform: translateY(-1px);
 }
 
@@ -173,12 +136,12 @@ a {
 
 .yt-mono {
   font-family: var(--yt-mono);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
 }
 
 /* ---------- AI 浮窗 ---------- */
 
-/* 收起态：霓虹圆钮（呼吸辉光） */
+/* 收起态：靛蓝圆钮（静置，无呼吸动画） */
 .yt-ai-orb {
   position: fixed;
   right: 20px;
@@ -186,40 +149,26 @@ a {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  border: 1px solid rgba(34, 211, 238, 0.55);
-  background: var(--yt-gradient);
-  color: #fff;
+  border: none;
+  background: var(--yt-accent);
+  color: #ffffff;
   font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   cursor: pointer;
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow:
-    0 0 18px rgba(34, 211, 238, 0.45),
-    0 8px 24px rgba(2, 6, 18, 0.6);
-  animation: yt-breathe 3.2s ease-in-out infinite;
-  transition: transform 0.2s ease;
+    0 0 0 1px rgba(124, 134, 232, 0.3),
+    0 6px 20px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s ease, background 0.2s ease;
 }
 
 .yt-ai-orb:hover {
-  transform: scale(1.08);
-}
-
-@keyframes yt-breathe {
-  0%,
-  100% {
-    box-shadow:
-      0 0 14px rgba(34, 211, 238, 0.35),
-      0 8px 24px rgba(2, 6, 18, 0.6);
-  }
-  50% {
-    box-shadow:
-      0 0 26px rgba(34, 211, 238, 0.62),
-      0 8px 28px rgba(2, 6, 18, 0.65);
-  }
+  background: var(--yt-accent-deep);
+  transform: scale(1.05);
 }
 
 /* 对话气泡 */
@@ -231,9 +180,8 @@ a {
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #06202a;
-  background: linear-gradient(135deg, #22d3ee 0%, #38bdf8 100%);
-  box-shadow: 0 2px 12px rgba(34, 211, 238, 0.25);
+  color: var(--yt-bubble-user-fg);
+  background: var(--yt-bubble-user-bg);
 }
 
 .yt-bubble-ai {
@@ -245,7 +193,7 @@ a {
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--yt-text-primary);
-  background: rgba(30, 41, 66, 0.66);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--yt-border);
 }
 
@@ -284,17 +232,17 @@ a {
   border-radius: 999px;
   font-size: 12px;
   color: var(--yt-text-secondary);
-  background: rgba(30, 41, 66, 0.5);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--yt-border);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
   white-space: nowrap;
 }
 
 .yt-chip:hover {
-  color: var(--yt-accent);
-  border-color: rgba(34, 211, 238, 0.45);
-  background: var(--yt-accent-soft);
+  color: var(--yt-text-primary);
+  border-color: var(--yt-border-bright);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 /* ---------- X6 编辑器暗色适配 ---------- */
@@ -304,15 +252,13 @@ a {
   background: transparent;
 }
 
-/* 工具栏（@antv/x6-react-components）：深色玻璃化。
+/* 工具栏（@antv/x6-react-components）：中性暗色面板。
    注意：库默认 hover 是浅色（#262626 + #e0e0e0），覆盖时必须 !important 保证优先级 */
 .x6-toolbar {
-  background: rgba(16, 24, 44, 0.82) !important;
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+  background: rgba(16, 17, 19, 0.9) !important;
   border: 1px solid var(--yt-border) !important;
   border-radius: 10px !important;
-  box-shadow: 0 6px 24px rgba(2, 6, 18, 0.5) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45) !important;
   color: var(--yt-text-secondary);
 }
 
@@ -322,8 +268,8 @@ a {
 
 .x6-toolbar .x6-toolbar-item:hover:not(.x6-toolbar-item-disabled),
 .x6-toolbar .x6-toolbar-item.x6-toolbar-item-active {
-  color: var(--yt-accent) !important;
-  background-color: var(--yt-accent-soft) !important;
+  color: var(--yt-text-primary) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 .x6-toolbar .x6-toolbar-item.x6-toolbar-item-disabled,
@@ -334,17 +280,15 @@ a {
 
 /* 分组分隔线 */
 .x6-toolbar .x6-toolbar-group::before {
-  background-color: rgba(148, 163, 184, 0.18) !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 /* 缩放下拉菜单 */
 .x6-menu {
   background: var(--yt-glass-strong) !important;
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
   border: 1px solid var(--yt-border) !important;
   border-radius: 10px !important;
-  box-shadow: 0 10px 36px rgba(2, 6, 18, 0.6) !important;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55) !important;
 }
 
 .x6-menu .x6-menu-item-button {
@@ -353,17 +297,17 @@ a {
 
 .x6-menu .x6-menu-item:hover > .x6-menu-item-button,
 .x6-menu .x6-menu-item-active > .x6-menu-item-button {
-  color: var(--yt-accent) !important;
-  background: var(--yt-accent-soft) !important;
+  color: var(--yt-text-primary) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 .x6-menu .x6-menu-item-divider {
-  background: rgba(148, 163, 184, 0.2) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
 }
 
 /* Stencil 图形库面板 */
 .x6-widget-stencil {
-  background: rgba(13, 19, 38, 0.72);
+  background: rgba(13, 14, 17, 0.85);
   border-right: 1px solid var(--yt-border);
 }
 
@@ -378,7 +322,7 @@ a {
 
 /* 小地图 */
 .x6-widget-minimap {
-  background: rgba(16, 24, 44, 0.9) !important;
+  background: rgba(16, 17, 19, 0.94) !important;
   border: 1px solid var(--yt-border);
   border-radius: 10px;
   overflow: hidden;
@@ -386,22 +330,22 @@ a {
 
 /* scroller 分页线弱化 */
 .x6-widget-scrollerpagebreak {
-  border-color: rgba(148, 163, 184, 0.12);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
-/* 选中框/对齐线辉光色（X6 默认蓝色，保持即可，仅调透明度感受） */
+/* 选中框/对齐线：统一使用强调色（X6 默认蓝换成品牌靛蓝） */
 .x6-widget-selection-inner {
-  border-color: rgba(34, 211, 238, 0.55) !important;
+  border-color: rgba(124, 134, 232, 0.6) !important;
 }
 
 .x6-widget-snapline-vertical,
 .x6-widget-snapline-horizontal {
-  border-color: rgba(34, 211, 238, 0.7) !important;
+  border-color: rgba(124, 134, 232, 0.7) !important;
 }
 
 /* ===== 预览页（保存后落地页） ===== */
 
-/* 顶部玻璃工具栏 */
+/* 顶部工具栏 */
 .yt-preview-toolbar {
   flex: 0 0 48px;
   height: 48px;
@@ -410,26 +354,25 @@ a {
   justify-content: space-between;
   gap: 12px;
   padding: 0 16px;
-  background: rgba(10, 15, 30, 0.85);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+  background: rgba(11, 12, 14, 0.92);
+  border-bottom: 1px solid var(--yt-border);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   z-index: 300;
 }
 
-/* 等宽技术标签（PREVIEW） */
+/* 等宽技术标签（PREVIEW）：安静的描边小标签 */
 .yt-preview-tag {
   padding: 2px 8px;
   font-size: 11px;
   letter-spacing: 0.12em;
-  color: var(--yt-accent);
-  background: rgba(34, 211, 238, 0.1);
-  border: 1px solid rgba(34, 211, 238, 0.28);
+  color: var(--yt-text-secondary);
+  background: transparent;
+  border: 1px solid var(--yt-border-bright);
   border-radius: 4px;
   white-space: nowrap;
 }
 
-/* 预览页小地图容器（右下角玻璃面板） */
+/* 预览页小地图容器（右下角面板） */
 .yt-preview-minimap {
   position: absolute;
   right: 16px;
@@ -439,13 +382,12 @@ a {
   background: var(--yt-glass);
   border: 1px solid var(--yt-border);
   border-radius: 10px;
-  backdrop-filter: blur(10px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
 /* ===== 公开分享页（免登录只读查看） ===== */
 
-/* 顶栏玻璃横幅：品牌 + 项目名 + 注册转化 CTA（与预览页顶栏同构） */
+/* 顶栏横幅：品牌 + 项目名 + 注册转化 CTA（与预览页顶栏同构） */
 .yt-share-toolbar {
   flex: 0 0 48px;
   height: 48px;
@@ -454,9 +396,8 @@ a {
   justify-content: space-between;
   gap: 12px;
   padding: 0 16px;
-  background: rgba(10, 15, 30, 0.85);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+  background: rgba(11, 12, 14, 0.92);
+  border-bottom: 1px solid var(--yt-border);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   z-index: 300;
 }
@@ -475,7 +416,6 @@ a {
   background: var(--yt-glass);
   border: 1px solid var(--yt-border);
   border-radius: 999px;
-  backdrop-filter: blur(10px);
   pointer-events: none;
 }
 
@@ -495,9 +435,7 @@ a {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  background: rgba(10, 15, 30, 0.88);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(11, 12, 14, 0.94);
   border-bottom: 1px solid var(--yt-border);
 }
 
@@ -506,7 +444,7 @@ a {
   font-size: 12px;
   padding: 3px 10px;
   border-radius: 6px;
-  background: rgba(16, 24, 44, 0.82);
+  background: var(--yt-bg-panel);
   border: 1px solid var(--yt-border);
   color: var(--yt-text-primary);
   max-width: 40vw;
@@ -565,17 +503,16 @@ a {
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
-  color: rgba(148, 163, 184, 0.45);
+  color: rgba(155, 160, 168, 0.45);
   text-align: right;
   line-height: 1.35;
 }
 
-/* 主行：等宽小号 + 微弱辉光（克制） */
+/* 主行：等宽小号（低对比，不加辉光） */
 .yt-watermark-main {
   font-family: var(--yt-mono);
   font-size: 12px;
   letter-spacing: 0.04em;
-  text-shadow: 0 0 6px rgba(148, 163, 184, 0.18);
   white-space: nowrap;
 }
 
@@ -602,7 +539,7 @@ a {
 }
 
 .yt-watermark-link:hover {
-  color: rgba(148, 163, 184, 0.85);
+  color: rgba(155, 160, 168, 0.85);
   text-decoration: underline;
 }
 

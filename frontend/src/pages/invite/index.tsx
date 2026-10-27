@@ -38,7 +38,7 @@ interface MyCommunityItem {
 /** 审核状态 → 展示文案与颜色 */
 const STATUS_TEXT: Record<MyCommunityItem["status"], { text: string; color: string }> = {
   pending: { text: "审核中", color: "var(--yt-text-muted)" },
-  approved: { text: "已上架", color: "var(--yt-accent, #22d3ee)" },
+  approved: { text: "已上架", color: "var(--yt-accent)" },
   rejected: { text: "已驳回", color: "#ff6b6b" },
 };
 
@@ -144,7 +144,7 @@ export const InvitePage = () => {
                   style={{
                     fontSize: 30,
                     letterSpacing: "0.3em",
-                    color: "var(--yt-accent, #22d3ee)",
+                    color: "var(--yt-accent)",
                     fontWeight: 700,
                     userSelect: "all",
                   }}
@@ -271,7 +271,7 @@ export const InvitePage = () => {
                           style={{
                             width: `${(progress / m.count) * 100}%`,
                             height: "100%",
-                            background: "var(--yt-accent, #22d3ee)",
+                            background: "var(--yt-accent)",
                           }}
                         />
                       </div>
@@ -281,7 +281,7 @@ export const InvitePage = () => {
                           fontSize: 11,
                           minWidth: 56,
                           textAlign: "right",
-                          color: m.claimed ? "var(--yt-accent, #22d3ee)" : "var(--yt-text-muted)",
+                          color: m.claimed ? "var(--yt-accent)" : "var(--yt-text-muted)",
                         }}
                       >
                         {m.claimed ? "已发放" : `${progress}/${m.count}`}
@@ -300,7 +300,7 @@ export const InvitePage = () => {
                 </div>
               ))}
               <div style={{ marginTop: 10, fontSize: 12 }}>
-                <Link to="/pricing" style={{ color: "var(--yt-accent, #22d3ee)" }}>
+                <Link to="/pricing" style={{ color: "var(--yt-accent)" }}>
                   <CrownOutlined /> 想要更多额度？看看会员月卡 →
                 </Link>
               </div>

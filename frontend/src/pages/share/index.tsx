@@ -164,7 +164,7 @@ export const SharePage = () => {
         flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
-        background: "#0a0f1e",
+        background: "#0b0c0e",
       }}
     >
       {/* 顶部玻璃横幅：品牌 + 项目名 + 复制/注册转化 CTA */}

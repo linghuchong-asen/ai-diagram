@@ -1,25 +1,22 @@
 /*
- * @Description: 语图品牌组件（登录/注册/首页共用）—— Neon Dark 科技感版本
+ * @Description: 语图品牌组件（登录/注册/首页共用）—— Quiet Dark 极简版本
  */
 
-/** 登录/注册页顶部的品牌区：等宽英文标签 + 渐变大标题 + 副标语 */
+/** 登录/注册页顶部的品牌区：等宽英文标签 + 纯色大标题 + 副标语 */
 const BrandTitle = () => (
   <div style={{ textAlign: 'center', marginBottom: 28 }}>
     <div
       className="yt-mono"
-      style={{ fontSize: 11, color: 'var(--yt-accent)', letterSpacing: '0.32em', marginBottom: 12, opacity: 0.9 }}
+      style={{ fontSize: 11, color: 'var(--yt-text-muted)', letterSpacing: '0.24em', marginBottom: 12 }}
     >
       YUTU · AI DIAGRAM
     </div>
     <div
       style={{
         fontSize: 34,
-        fontWeight: 700,
-        letterSpacing: '0.14em',
-        background: 'linear-gradient(135deg, #22d3ee 10%, #818cf8 90%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        filter: 'drop-shadow(0 0 18px rgba(34, 211, 238, 0.32))',
+        fontWeight: 600,
+        letterSpacing: '0.08em',
+        color: 'var(--yt-text-primary)',
       }}
     >
       语 图
@@ -30,22 +27,20 @@ const BrandTitle = () => (
   </div>
 );
 
-/** 首页等页面的小型品牌标识：渐变 logo + 等宽标签 */
+/** 首页等页面的小型品牌标识：纯色字标 + 等宽标签 */
 export const BrandLogoSmall = ({ subtitle }: { subtitle?: string }) => (
   <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
     <div
       style={{
         fontSize: 20,
-        fontWeight: 700,
-        letterSpacing: '0.1em',
-        background: 'linear-gradient(135deg, #22d3ee 10%, #818cf8 90%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
+        fontWeight: 600,
+        letterSpacing: '0.06em',
+        color: 'var(--yt-text-primary)',
       }}
     >
       语图
     </div>
-    <div className="yt-mono" style={{ fontSize: 10, color: 'var(--yt-text-muted)', letterSpacing: '0.24em' }}>
+    <div className="yt-mono" style={{ fontSize: 10, color: 'var(--yt-text-muted)', letterSpacing: '0.2em' }}>
       {subtitle ?? 'YUTU · AI DIAGRAM'}
     </div>
   </div>

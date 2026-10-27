@@ -550,3 +550,14 @@ og:image（待设计资产）、知乎卡位/导航站收录/公众号兑换码�
 - **后端**：`GET /template/community/mine`（JWT）：本人全部投稿（title/status/viewCount/copyCount/shareToken），按时间倒序 ≤50 条 —— template.service.listMyCommunity。
 - **前端**：`/invite` 页新增「我的社区作品」卡片（审核中/已上架/已驳回 + N 查看 · M 复制 + 激励规则提示）；旁路查询失败隐藏分区。
 - 验证：全量 jest 43 套件/482 用例绿（净增 1）；前端 check 0 失败；tsc×2 干净。
+
+---
+
+# UI 暗色极简改版批次（2026-10-28 凌晨批次）
+
+> 规格依据：`docs/specs/ui-quiet-dark-batch/spec.md`。回应用户「UI 山寨感没有逼格」的反馈：诊断出 Neon Dark 科技感堆料（渐变字/辉光/扫描线/呼吸动画/玻璃拟态/Tailwind 默认青紫渐变）是山寨感根源，全站切换为 Quiet Dark（真中性近黑 + 发丝线 + 单一靛蓝强调 + 白底主按钮 + 纯色大标题）。
+
+- **令牌层**：`tech-theme.css` 全量重写（类名契约不变，下游自动继承）；新增 `--yt-btn-primary-bg/fg`、`--yt-bubble-user-bg/fg`；`--yt-gradient` 重定义为强调色实色；删除 `yt-scan`/`yt-breathe` 动画、网格背景、渐变描边、毛玻璃。
+- **页面清扫**：9 处渐变标题改纯色（landing/annual/digest/fun/mind/scenarios×2/templates/brand）；全站硬编码霓虹色与蓝灰面清零（浮窗/渲染器/编辑器配置面板/画布 chrome/连接桩 #31d0c6→#7c86e8/minimap/port-groups）；`shareCard.ts`、`annualCard.ts` 导出图色板同步；`var(--yt-accent, #22d3ee)` 回退值清理。
+- **明确不改**：节点类型功能色（内容级辨识色）、antd 组件默认蓝（另立批次做 ConfigProvider 主色）。
+- 验证：前端 tsc 0 错误；25 个 check 脚本全绿；真实渲染截图逐页验收（首页/登录/模板/定价/试用/场景库）；grep 无霓虹色残留。

@@ -204,7 +204,7 @@ const PageShell = styled.div`
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  background: #0a0f1e;
+  background: #0b0c0e;
 `;
 
 /** 顶部玻璃小栏（与 share/preView 顶栏同构） */
@@ -216,10 +216,10 @@ const TopBar = styled.header`
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  background: rgba(10, 15, 30, 0.85);
+  background: rgba(11, 12, 14, 0.92);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(34, 211, 238, 0.18);
+  border-bottom: 1px solid var(--yt-border);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   @media (max-width: 768px) {
     padding: 0 10px;

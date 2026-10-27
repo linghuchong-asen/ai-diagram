@@ -65,10 +65,10 @@ export const VipExpiryBanner = () => {
         gap: 12,
         padding: "12px 16px",
         marginBottom: 16,
-        border: "1px solid var(--yt-accent, #22d3ee)",
+        border: "1px solid var(--yt-accent)",
       }}
     >
-      <CrownOutlined style={{ color: "var(--yt-accent, #22d3ee)", fontSize: 18, flexShrink: 0 }} />
+      <CrownOutlined style={{ color: "var(--yt-accent)", fontSize: 18, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--yt-text-primary)" }}>
           {expiring ? "会员明天到期" : `会员已到期 ${days} 天`}

@@ -121,7 +121,7 @@ export const AdminRevenuePage = () => {
 
   if (roleLoaded && role !== "root") {
     return (
-      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#0a0f1e" }}>
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#0b0c0e" }}>
         <Card style={{ width: 360, textAlign: "center" }}>
           <Typography.Text type="secondary">
             营收看板仅对运营负责人（root）开放，当前账号无权访问。
@@ -132,7 +132,7 @@ export const AdminRevenuePage = () => {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0f1e", padding: "24px 20px 48px" }}>
+    <div style={{ minHeight: "100vh", background: "#0b0c0e", padding: "24px 20px 48px" }}>
       <div style={{ maxWidth: 1080, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
           <BrandLogoSmall />
@@ -210,7 +210,7 @@ export const AdminRevenuePage = () => {
                         <div
                           style={{
                             height: `${bar.unlockPct}%`,
-                            background: "var(--yt-accent, #22d3ee)",
+                            background: "var(--yt-accent)",
                             borderRadius: "2px 2px 0 0",
                             minHeight: bar.unlockPct > 0 ? 2 : 0,
                           }}
@@ -238,7 +238,7 @@ export const AdminRevenuePage = () => {
                       flex: 1,
                       textAlign: "center",
                       fontSize: 9,
-                      color: bar.hasRevenue ? "var(--yt-accent, #22d3ee)" : "var(--yt-text-muted)",
+                      color: bar.hasRevenue ? "var(--yt-accent)" : "var(--yt-text-muted)",
                     }}
                   >
                     {bar.label}
@@ -246,7 +246,7 @@ export const AdminRevenuePage = () => {
                 ))}
               </div>
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--yt-text-muted)" }}>
-                图例：<span style={{ color: "var(--yt-accent, #22d3ee)" }}>■</span> 单图解锁 ·
+                图例：<span style={{ color: "var(--yt-accent)" }}>■</span> 单图解锁 ·
                 <span style={{ color: "rgba(168,85,247,0.9)", marginLeft: 6 }}>■</span> 会员月卡；悬停柱体看当日金额。
               </div>
             </Card>

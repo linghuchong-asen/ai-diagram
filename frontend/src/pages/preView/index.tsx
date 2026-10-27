@@ -433,7 +433,7 @@ export const PreViewPage = () => {
         flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
-        background: "#0a0f1e",
+        background: "#0b0c0e",
       }}
     >
       {/* 顶部玻璃工具栏：返回 / 项目名 / 适配视图 / 导出 / 继续编辑 */}
@@ -824,7 +824,7 @@ export const PreViewPage = () => {
           style={{
             fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
             fontSize: 12,
-            background: "rgba(13, 19, 38, 0.6)",
+            background: "rgba(16, 17, 19, 0.85)",
             color: "var(--yt-text-primary)",
           }}
         />

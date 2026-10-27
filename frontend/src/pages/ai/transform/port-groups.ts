@@ -27,7 +27,7 @@ export interface PortGroupStyleOptions {
 export const DEFAULT_PORT_STYLE: Required<PortGroupStyleOptions> = {
   r: 3,
   magnet: true,
-  stroke: '#31d0c6',
+  stroke: '#7c86e8',
   strokeWidth: 2,
   fill: '#fff',
   visibility: 'hidden',

@@ -71,7 +71,7 @@ export default function TableView({ draft }: TableViewProps) {
                     border: '1px solid var(--yt-border)',
                     padding: '6px 10px',
                     textAlign: 'left',
-                    background: 'rgba(34, 211, 238, 0.08)',
+                    background: 'rgba(124, 134, 232, 0.10)',
                     color: 'var(--yt-accent)',
                     fontWeight: 600,
                     whiteSpace: 'nowrap',
@@ -104,7 +104,7 @@ export default function TableView({ draft }: TableViewProps) {
                             boxSizing: 'border-box',
                             border: 'none',
                             outline: 'none',
-                            background: 'rgba(30, 41, 66, 0.9)',
+                            background: 'rgba(255, 255, 255, 0.06)',
                             color: 'var(--yt-text-primary)',
                             fontSize: 12,
                             padding: '4px 6px',
@@ -140,7 +140,7 @@ export default function TableView({ draft }: TableViewProps) {
         <div
           style={{
             borderLeft: '3px solid var(--yt-accent)',
-            background: 'rgba(34, 211, 238, 0.06)',
+            background: 'rgba(124, 134, 232, 0.07)',
             padding: '6px 10px',
             fontSize: 12,
             color: 'var(--yt-text-primary)',

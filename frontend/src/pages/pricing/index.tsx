@@ -187,7 +187,7 @@ export const PricingPage = () => {
               flex: "1 1 260px",
               maxWidth: 300,
               padding: "22px 20px",
-              border: "1px solid var(--yt-accent, #22d3ee)",
+              border: "1px solid var(--yt-accent)",
               position: "relative",
             }}
           >
@@ -243,7 +243,7 @@ export const PricingPage = () => {
           收款通道开放前下单会展示赞助引导，不会误扣款；对公合作与批量采购请联系客服邮箱。
           <br />
           {/* 邀请裂变批次：价格页底部的裂变入口（邀请得会员天数，与付费互相放大） */}
-          <Link to="/invite" style={{ color: "var(--yt-accent, #22d3ee)" }}>
+          <Link to="/invite" style={{ color: "var(--yt-accent)" }}>
             邀请好友注册，你得会员天数、TA 得生成额度 →
           </Link>
         </p>

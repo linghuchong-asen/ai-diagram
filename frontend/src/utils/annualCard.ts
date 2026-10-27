@@ -33,8 +33,8 @@ function drawStatCell(
   label: string,
 ): void {
   // 半透明底块 + 描边（与内容区描边同语言）
-  ctx.fillStyle = "rgba(30, 41, 66, 0.55)";
-  ctx.strokeStyle = "rgba(34, 211, 238, 0.18)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.10)";
   ctx.lineWidth = 1;
   const h = 148;
   ctx.beginPath();
@@ -84,7 +84,7 @@ export async function exportAnnualCard(report: AnnualReport): Promise<void> {
 
   // 平台 + 年份副题
   ctx.font = "600 30px ui-monospace, SFMono-Regular, Menlo, monospace";
-  ctx.fillStyle = "#22d3ee";
+  ctx.fillStyle = "#7c86e8";
   ctx.fillText(`${sourceName} · ${report.year} 年度代码报告`, padding, y + 8);
   y += 64;
 

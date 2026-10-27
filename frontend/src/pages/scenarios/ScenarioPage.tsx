@@ -82,7 +82,7 @@ export const ScenarioPage = () => {
           autoSize={{ minRows: 7, maxRows: 14 }}
           placeholder={scenario.placeholder}
           style={{
-            background: "rgba(30, 41, 66, 0.55)",
+            background: "rgba(255, 255, 255, 0.04)",
             color: "var(--yt-text-primary)",
             borderRadius: 12,
             padding: "14px 16px",
@@ -173,12 +173,9 @@ const HeroEmoji = styled.div`
 const HeroTitle = styled.h1`
   margin: 0 0 10px;
   font-size: 30px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  background: linear-gradient(135deg, #22d3ee 10%, #818cf8 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-weight: 600;?
+  letter-spacing: -0.01em;
+  color: var(--yt-text-primary);
   @media (max-width: 768px) {
     font-size: 22px;
   }

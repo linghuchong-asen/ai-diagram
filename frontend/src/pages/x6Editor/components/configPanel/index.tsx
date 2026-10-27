@@ -42,8 +42,8 @@ export const CellAttrs = (props: attrProp) => {
           <CloseOutlined style={{ position: "absolute", right: "20px", top: '10px' }} />
         }
         title={<div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--yt-text-secondary)' }}>画布属性</div>}
-        headerStyle={{ backgroundColor: 'rgba(16, 24, 44, 0.92)', height: '30px', borderBottom: '1px solid var(--yt-border)' }}
-        bodyStyle={{ backgroundColor: '#10182c', padding: 0 }}
+        headerStyle={{ backgroundColor: 'rgba(16, 17, 19, 0.94)', height: '30px', borderBottom: '1px solid var(--yt-border)' }}
+        bodyStyle={{ backgroundColor: '#101113', padding: 0 }}
       >
         <GridPanel graph={props.graph} />
       </Drawer>
@@ -63,8 +63,8 @@ export const CellAttrs = (props: attrProp) => {
             <CloseOutlined style={{ position: "absolute", right: "20px", top: '10px' }} />
           }
           title={<div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--yt-text-secondary)' }}>节点属性</div>}
-          headerStyle={{ backgroundColor: 'rgba(16, 24, 44, 0.92)', height: '30px', borderBottom: '1px solid var(--yt-border)' }}
-          bodyStyle={{ backgroundColor: '#10182c', padding: 0 }}
+          headerStyle={{ backgroundColor: 'rgba(16, 17, 19, 0.94)', height: '30px', borderBottom: '1px solid var(--yt-border)' }}
+          bodyStyle={{ backgroundColor: '#101113', padding: 0 }}
         >
           <NodePanel
             graph={props.graph}
@@ -86,8 +86,8 @@ export const CellAttrs = (props: attrProp) => {
             <CloseOutlined style={{ position: "absolute", right: "20px", top: '10px' }} />
           }
           title={<div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--yt-text-secondary)' }}>边属性</div>}
-          headerStyle={{ backgroundColor: 'rgba(16, 24, 44, 0.92)', height: '30px', borderBottom: '1px solid var(--yt-border)' }}
-          bodyStyle={{ backgroundColor: '#10182c', padding: 0 }}
+          headerStyle={{ backgroundColor: 'rgba(16, 17, 19, 0.94)', height: '30px', borderBottom: '1px solid var(--yt-border)' }}
+          bodyStyle={{ backgroundColor: '#101113', padding: 0 }}
         >
           <EdgePanel
             graph={props.graph}

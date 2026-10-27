@@ -34,7 +34,7 @@ const PageWrap = styled.div`
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
-  background: #0a0f1e;
+  background: #0b0c0e;
 `;
 
 /** 内容容器：限宽居中，悬浮在 yt-atmo 之上 */
@@ -55,10 +55,7 @@ const HeroTitle = styled.h1`
   letter-spacing: 0.04em;
   color: var(--yt-text-primary);
   span {
-    background: linear-gradient(135deg, #22d3ee 10%, #818cf8 90%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--yt-accent);
   }
 `;
 
@@ -82,7 +79,7 @@ const FilterChip = styled.span<{ $active?: boolean }>`
     props.$active &&
     `
     color: var(--yt-accent);
-    border-color: rgba(34, 211, 238, 0.45);
+    border-color: var(--yt-border-bright);
     background: var(--yt-accent-soft);
   `}
 `;
@@ -109,7 +106,7 @@ const TemplateCard = styled.div`
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(34, 211, 238, 0.12);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
   }
 `;
 

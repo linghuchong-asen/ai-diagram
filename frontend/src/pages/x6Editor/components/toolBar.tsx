@@ -513,7 +513,7 @@ const ToolBar = (props: props) => {
           whiteSpace: "nowrap",
           padding: "4px 14px",
           borderRadius: 8,
-          background: "rgba(16, 24, 44, 0.82)",
+          background: "rgba(16, 17, 19, 0.9)",
           border: "1px solid var(--yt-border)",
           color: "var(--yt-text-primary)",
           fontSize: 13,
