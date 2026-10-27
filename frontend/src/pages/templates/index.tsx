@@ -1,17 +1,29 @@
 /*
  * @Description: 模板中心 —— 高频流程模板一键生成入口（Task 7）
- * 产品定位：克制版（无搜索/无分页/无详情页），12 个静态预置模板 + 分类过滤。
+ * 产品定位：克制版（无搜索/无分页/无详情页），官方静态预置模板 + 分类过滤。
  * 转化动线：点击模板 → /trial?q=<prompt>，试用页浮窗自动发送即出图。
+ * 社区模板批次：新增「社区精选」分区 —— 用户投稿作品经审核上架，
+ *   点击「查看成品」跳 /share/:token 免登录看图（页内自带复制/注册转化动线）。
  * 设计语言：Neon Dark，与分享页同构（玻璃顶栏 + yt-atmo 氛围背景 + 玻璃卡片）。
  */
 
 import { Button, Spin } from "antd";
-import { RocketOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import {
+  EyeOutlined,
+  RocketOutlined,
+  ThunderboltOutlined,
+} from "@ant-design/icons";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import styled from "@emotion/styled";
 import { BrandLogoSmall } from "../legal/brand";
-import { FlowTemplate, useGetTemplates } from "./server";
+import { trackGrowthEvent } from "../share/server";
+import {
+  CommunityTemplateItem,
+  FlowTemplate,
+  useGetCommunityTemplates,
+  useGetTemplates,
+} from "./server";
 
 /* ---------- 页面骨架（emotion 内嵌样式，不动全局 tech-theme.css） ---------- */
 
@@ -147,23 +159,28 @@ const StateWrap = styled.div`
   font-size: 13px;
 `;
 
-/** 分类过滤项（「全部」+ 四个合法分类，顺序与后端枚举一致） */
+/** 分类过滤项（「全部」+ 五个合法分类，顺序与后端枚举一致;「多形态」为 Round 18 新增） */
 const CATEGORY_FILTERS: Array<"全部" | FlowTemplate["category"]> = [
   "全部",
   "校园",
   "职场",
   "电商",
   "研发",
+  "多形态",
 ];
 
 export const TemplatesPage = () => {
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useGetTemplates();
+  /** 社区精选（旁路查询：失败/为空时分区整体隐藏，不影响官方模板主区） */
+  const { data: communityData } = useGetCommunityTemplates();
   /** 当前选中分类（undefined 时尚未渲染 chips，默认「全部」） */
   const [activeCategory, setActiveCategory] =
     useState<(typeof CATEGORY_FILTERS)[number]>("全部");
 
   const templates: FlowTemplate[] = data?.data ?? [];
+  /** 社区精选列表（为空时分区整体隐藏） */
+  const community: CommunityTemplateItem[] = communityData?.data ?? [];
   /** 分类过滤（纯前端内存过滤，静态数据无需请求） */
   const visibleTemplates = useMemo(
     () =>
@@ -173,9 +190,11 @@ export const TemplatesPage = () => {
     [templates, activeCategory]
   );
 
-  /** 一键生成：携带完整 prompt 跳试用页，浮窗自动发送即出图 */
+  /** 一键生成：携带完整 prompt 跳试用页，浮窗自动发送即出图；
+   *  Round 18：多形态模板追加 &form= 透传（/trial 读取后作为 formHint 直达产物形态） */
   const handleGenerate = (template: FlowTemplate) => {
-    navigate(`/trial?q=${encodeURIComponent(template.prompt)}`);
+    const formSuffix = template.formHint ? `&form=${template.formHint}` : "";
+    navigate(`/trial?q=${encodeURIComponent(template.prompt)}${formSuffix}`);
   };
 
   return (
@@ -285,6 +304,47 @@ export const TemplatesPage = () => {
               </TemplateCard>
             ))}
           </TemplateGrid>
+        )}
+
+        {/* 社区精选（community-template-batch）：用户投稿作品，审核上架；空/加载失败时整体隐藏 */}
+        {community.length > 0 && (
+          <>
+            <HeroTitle style={{ fontSize: 20, marginTop: 40 }}>
+              社区精选 · <span>来自真实用户的图</span>
+            </HeroTitle>
+            <HeroSubtitle>点击查看完整成品，可一键复制为自己的图继续编辑</HeroSubtitle>
+            <TemplateGrid>
+              {community.map((item) => (
+                <TemplateCard
+                  key={item.id}
+                  className="yt-glass-border"
+                  onClick={() => {
+                    // 社区模板点击埋点（漏斗：community_template_click → share_view → share_duplicate）
+                    trackGrowthEvent("community_template_click", { templateId: item.id });
+                    navigate(`/share/${item.shareToken}`);
+                  }}
+                  title={item.description}
+                >
+                  <CardHead>
+                    <span className="yt-mono yt-preview-tag">社区精选</span>
+                    <CardScene>By {item.ownerName}</CardScene>
+                  </CardHead>
+                  <CardName>{item.title}</CardName>
+                  <CardDesc>{item.description || "点击查看完整成品图"}</CardDesc>
+                  <CardFoot>
+                    <Button icon={<EyeOutlined />}>查看成品</Button>
+                    {/* 热度（模板使用统计批次）：查看数 / 复制数 */}
+                    <span
+                      className="yt-mono"
+                      style={{ fontSize: 10, color: "var(--yt-text-muted)" }}
+                    >
+                      {item.viewCount ?? 0} 次查看 · {item.copyCount ?? 0} 次复制
+                    </span>
+                  </CardFoot>
+                </TemplateCard>
+              ))}
+            </TemplateGrid>
+          </>
         )}
       </ContentWrap>
     </PageWrap>

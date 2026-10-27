@@ -10,6 +10,8 @@ import { AiService } from './ai.service';
 import { FlowStateGraph } from './agents/graph';
 import { IntentRecognizer } from './intent/intent.recognizer';
 import { IntentLlmClassifier } from './intent/intent.llm-classifier';
+// multi-artifact-batch:形式路由器(generate 意图内的产物形态二级路由)
+import { FormRouter } from './form/form.router';
 import { ContextBuilder } from './context/context.builder';
 import { ReflectionEvaluator } from './reflection/evaluator';
 import { Rewriter } from './reflection/rewriter';
@@ -32,6 +34,13 @@ import { MemoryStoreWiringService } from './memory/memory.wiring';
 import { AiCheckpointEntity } from './memory/short-term/checkpoint.entity';
 import { LongTermMemoryEntity } from './memory/long-term/long-term.entity';
 import { AiDailyUsageEntity } from './quota/ai-daily-usage.entity';
+// 商业化闭环批次:QuotaService 读 user.vip_expire_time 判定会员额度,注册 UserEntity 仓库
+import { UserEntity } from '../user/entities/user.entity';
+// 留存与裂变加强批次:每日签到（连签 7 天整数倍送会员天数,经 BillingModule 的 grantVipDays）
+import { DailyCheckinEntity } from './checkin/daily-checkin.entity';
+import { CheckinService } from './checkin/checkin.service';
+import { CheckinController } from './checkin/checkin.controller';
+import { BillingModule } from '../billing/billing.module';
 import { QuotaService } from './quota/quota.service';
 import { AuthModule } from '../auth/auth.module';
 import { ThreadStore } from './streaming/thread.store';
@@ -47,16 +56,28 @@ import { SummaryMemoryModule } from './memory/summary/summary.memory.module';
     ConfigModule,
     SummaryMemoryModule,
     AuthModule,
-    TypeOrmModule.forFeature([AiCheckpointEntity, LongTermMemoryEntity, AiDailyUsageEntity]),
+    // 留存与裂变加强批次:签到连签奖励经 BillingModule 的 grantVipDays 发放（无循环依赖）
+    BillingModule,
+    TypeOrmModule.forFeature([
+      AiCheckpointEntity,
+      LongTermMemoryEntity,
+      AiDailyUsageEntity,
+      UserEntity,
+      DailyCheckinEntity,
+    ]),
   ],
-  controllers: [AiController],
+  controllers: [AiController, CheckinController],
   providers: [
     AiService,
+    // 留存与裂变加强批次:每日签到
+    CheckinService,
     // agents
     FlowStateGraph,
     // intent
     IntentRecognizer,
     IntentLlmClassifier,
+    // multi-artifact-batch:形式路由
+    FormRouter,
     // context
     ContextBuilder,
     // reflection

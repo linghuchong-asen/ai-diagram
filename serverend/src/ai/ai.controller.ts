@@ -85,12 +85,14 @@ export class AiController {
       canvas: reqBody.canvas,
       sessionId: reqBody.sessionId,
       projectId: reqBody.projectId,
+      // multi-artifact-batch:产物形态提示(Schema 层白名单校验过才到这里)
+      formHint: reqBody.formHint,
     });
   }
 
-  /** 1') Task 3 免登录单次试用:匿名生成一次流程图(不扣用户配额)。
+  /** 1') Task 3 免登录试用:匿名生成流程图(不扣用户配额;快赢批次一起每日 2 次)。
    *  @Public 豁免 JWT;TrialRateLimitGuard 限 IP 5 次/10 分钟;
-   *  service 内另有 trialId 单次 / IP 日 3 次 / 全局日 100 三层台账防线。
+   *  service 内另有 trialId 日 2 次 / IP 日 6 次 / 全局日 100 三层台账防线。
    *  响应经 TransformInterceptor 包成 { code:0, data:{ threadId }, message }。
    */
   @Post('trial/chat')

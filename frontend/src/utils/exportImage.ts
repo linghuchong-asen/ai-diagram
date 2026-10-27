@@ -3,7 +3,8 @@
 //   · SVG 按内容包围盒 + 24px 内边距导出，透明背景（矢量、可再编辑、嵌入文档不糊）；
 //   · PNG 由 SVG 光栅化，2 倍缩放提升清晰度，白底适配 Word/PPT 嵌入；
 //   · 空画布时包围盒为 0，回退为当前视口尺寸，避免导出空文件；
-//   · 免费档水印（options.watermark）：导出前在 SVG 注入右下角低对比品牌文案，PNG/SVG 同视觉。
+//   · 免费档水印（options.watermark）：导出前在 SVG 注入右下角低对比品牌文案，PNG/SVG 同视觉；
+//   · 快赢批次一(QW3)：水印在品牌文案下追加一行站点地址，被转发的导出图可按图回流。
 
 import { Graph } from '@antv/x6';
 
@@ -19,6 +20,8 @@ const WATERMARK_TEXT = '语图 Yutu · 一句话生成流程图';
  * 在 SVG 根元素闭合标签前注入水印组：右下角内缩 16px、text-anchor=end、
  * 低对比 #94a3b8 / opacity 0.4；字号随画布宽缩放并夹在 10~20px，
  * 保证水印宽度约 ≤ 画布 12%，不遮挡图内容。
+ * 快赢批次一：品牌文案下追加一行站点地址（当前 origin；备案域名上线后自然升级），
+ * 让被转发到群聊/文档里的导出图也能被溯源回产品。
  */
 function injectWatermark(
   svg: string,
@@ -27,11 +30,19 @@ function injectWatermark(
   const fontSize = Math.max(10, Math.min(20, viewBox.width * 0.014));
   const x = viewBox.x + viewBox.width - 16;
   const y = viewBox.y + viewBox.height - 16;
+  // 站点地址行：无备案域名时为 origin（裸 IP 亦可回访），有域名后无需改代码
+  const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const group =
     `<g class="yutu-watermark" pointer-events="none">` +
     `<text x="${x}" y="${y}" text-anchor="end" fill="#94a3b8" opacity="0.4" ` +
     `font-family="ui-monospace, SFMono-Regular, Menlo, monospace" ` +
-    `font-size="${fontSize}">${WATERMARK_TEXT}</text></g>`;
+    `font-size="${fontSize}">${WATERMARK_TEXT}</text>` +
+    (siteUrl
+      ? `<text x="${x}" y="${y + fontSize * 1.1}" text-anchor="end" fill="#94a3b8" opacity="0.32" ` +
+        `font-family="ui-monospace, SFMono-Regular, Menlo, monospace" ` +
+        `font-size="${Math.max(8, fontSize * 0.8)}">${siteUrl}</text>`
+      : '') +
+    `</g>`;
   const closeIndex = svg.lastIndexOf('</svg>');
   if (closeIndex === -1) return svg;
   return svg.slice(0, closeIndex) + group + svg.slice(closeIndex);
@@ -75,6 +86,14 @@ function graphToSVG(graph: Graph): Promise<{ svg: string; viewBox: ReturnType<ty
       reject(error instanceof Error ? error : new Error(String(error)));
     }
   });
+}
+
+/**
+ * 把画布渲染为 SVG 字符串（分享卡工厂等外部消费方复用同一管线）。
+ * 快赢批次一后续（viral-card-batch）导出：卡片合成需要 SVG 源而非直接下载。
+ */
+export function renderGraphToSvg(graph: Graph): Promise<{ svg: string; viewBox: ReturnType<typeof contentBox> }> {
+  return graphToSVG(graph);
 }
 
 /** 导出 SVG 文件（透明背景，矢量无损；watermark=true 时注入免费档水印） */

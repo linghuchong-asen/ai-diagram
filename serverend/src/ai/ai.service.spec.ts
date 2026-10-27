@@ -50,7 +50,7 @@ async function expectTrialReject(promise: Promise<unknown>, code: string, messag
   }
 }
 
-describe('startTrial（Task 3 免登录单次试用）', () => {
+describe('startTrial（Task 3 免登录试用，快赢批次一起每日 2 次）', () => {
   it('首次通过 → 返回 threadId 并以强制 generate 意图建线程,不扣用户配额', async () => {
     const { service, graph, threadStore, quota } = makeService();
     const result = await service.startTrial({ message: '画一个请假流程', trialId: 't1' }, '1.1.1.1');
@@ -63,23 +63,44 @@ describe('startTrial（Task 3 免登录单次试用）', () => {
     );
   });
 
-  it('同一 trialId 当日第二次 → 429 TRIAL_USED', async () => {
+  it('快赢批次一:同一 trialId 当日第 2 次仍放行（让「改一下」类修正诉求可发生）', async () => {
+    const { service } = makeService();
+    await expect(
+      service.startTrial({ message: '第一次', trialId: 't1' }, '1.1.1.1'),
+    ).resolves.toMatchObject({ threadId: expect.any(String) });
+    await expect(
+      service.startTrial({ message: '改一下:加上驳回分支', trialId: 't1' }, '1.1.1.1'),
+    ).resolves.toMatchObject({ threadId: expect.any(String) });
+  });
+
+  it('同一 trialId 当日第 3 次 → 429 TRIAL_USED（文案注明每日 2 次）', async () => {
     const { service } = makeService();
     await service.startTrial({ message: '第一次', trialId: 't1' }, '1.1.1.1');
+    await service.startTrial({ message: '第二次', trialId: 't1' }, '1.1.1.1');
     await expectTrialReject(
-      service.startTrial({ message: '第二次', trialId: 't1' }, '1.1.1.1'),
+      service.startTrial({ message: '第三次', trialId: 't1' }, '1.1.1.1'),
       'TRIAL_USED',
-      '试用次数已用完，注册后每日可生成 3 次',
+      '今日免费试用次数已用完（每日 2 次），注册后每日可生成 3 次',
     );
   });
 
-  it('同 IP 第 4 次（换 trialId 也拦）→ 429 TRIAL_BUSY', async () => {
-    const { service } = makeService();
-    await service.startTrial({ message: 'm', trialId: 't1' }, '2.2.2.2');
-    await service.startTrial({ message: 'm', trialId: 't2' }, '2.2.2.2');
-    await service.startTrial({ message: 'm', trialId: 't3' }, '2.2.2.2');
+  it('AI_TRIAL_PER_ID_PER_DAY=1 可回调收紧为单次（配置回归旧口径）', async () => {
+    const { service } = makeService({ AI_TRIAL_PER_ID_PER_DAY: '1' });
+    await service.startTrial({ message: '第一次', trialId: 't1' }, '5.5.5.5');
     await expectTrialReject(
-      service.startTrial({ message: 'm', trialId: 't4' }, '2.2.2.2'),
+      service.startTrial({ message: '第二次', trialId: 't1' }, '5.5.5.5'),
+      'TRIAL_USED',
+      '今日免费试用次数已用完（每日 1 次），注册后每日可生成 3 次',
+    );
+  });
+
+  it('同 IP 第 7 次（换 trialId 也拦，日限 6）→ 429 TRIAL_BUSY', async () => {
+    const { service } = makeService();
+    for (let i = 1; i <= 6; i++) {
+      await service.startTrial({ message: 'm', trialId: `t${i}` }, '2.2.2.2');
+    }
+    await expectTrialReject(
+      service.startTrial({ message: 'm', trialId: 't7' }, '2.2.2.2'),
       'TRIAL_BUSY',
       '今日试用名额已满，注册立即可用',
     );
@@ -99,8 +120,9 @@ describe('startTrial（Task 3 免登录单次试用）', () => {
   it('全局限额未配置 → 默认 100 生效(第 100 次过、第 101 次拒)', async () => {
     const { service } = makeService();
     for (let i = 0; i < 100; i++) {
-      // 单 IP 上限 3 → 每次换 IP;单 trialId 单次 → 每次换 trialId
-      await service.startTrial({ message: 'm', trialId: `t${i}` }, `10.0.${Math.floor(i / 250)}.${(i % 250) + 1}`);
+      // 单 IP 日限 6 → 每次换 IP;单 trialId 日限 2 → 每 2 次换一个 trialId
+      const trialId = `t${Math.floor(i / 2)}`;
+      await service.startTrial({ message: 'm', trialId }, `10.0.${Math.floor(i / 250)}.${(i % 250) + 1}`);
     }
     await expectTrialReject(
       service.startTrial({ message: 'm', trialId: 't100' }, '10.1.0.1'),

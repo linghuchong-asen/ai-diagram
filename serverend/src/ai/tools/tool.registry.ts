@@ -9,6 +9,8 @@ import { z } from 'zod';
 import { TemplateMatcher } from './template-matcher';
 import { ValidatorTool } from './validator.tool';
 import { StructuredToolError, ToolErrorClassifier } from './error.classifier';
+// competitor-driven-evolution-batch Round 13:template_match 按形态分库匹配(formHint 白名单复用)
+import { ArtifactFormHintSchema } from '../schemas/artifact.schema';
 
 export interface ToolCallSpec {
   name: string; // 工具名
@@ -36,9 +38,10 @@ export interface ToolDefinition<TParams = any, TData = any> {
   run: (params: TParams, ctx: { contextId?: string; threadId?: string }) => Promise<TData> | TData;
 }
 
-/** template_match 参数契约 */
+/** template_match 参数契约(Round 13:artifactKind 缺省 = flowchart,与结果契约一致) */
 export const TemplateMatchParamsSchema = z.object({
   query: z.string().min(1, 'query 不能为空').max(2000, 'query 过长'),
+  artifactKind: ArtifactFormHintSchema.optional(),
 });
 
 /** validate_graph 参数契约 */
@@ -79,20 +82,32 @@ export class ToolRegistry {
 
   private registerBuiltinTools(): void {
     // 内置 Skill:模板匹配(命中即短路,确定性程序优先)
+    // Round 13:全形态模板库——flowchart 返回 draft(FlowDraft),新形态返回 artifactKind + artifact(产物本体)
     this.register({
       name: 'template_match',
-      description: '按用户描述匹配内置流程模板(请假审批/费用报销);有定制需求则不命中',
+      description:
+        '按用户描述匹配内置模板(流程图:请假审批/费用报销;清单:会议待办;表格:技术选型;时间线:三天两晚行程;导图:读书笔记);有定制需求则不命中',
       paramsSchema: TemplateMatchParamsSchema,
       run: (params: z.infer<typeof TemplateMatchParamsSchema>) => {
-        const result = this.templateMatcher.match(params.query);
-        return result.matched && result.template
-          ? {
-              matched: true,
-              templateId: result.template.id,
-              templateName: result.template.name,
-              draft: result.template.draft,
-            }
-          : { matched: false };
+        const result = this.templateMatcher.match(params.query, params.artifactKind);
+        if (result.matched && result.template) {
+          return {
+            matched: true,
+            templateId: result.template.id,
+            templateName: result.template.name,
+            draft: result.template.draft,
+          };
+        }
+        if (result.matched && result.artifactTemplate) {
+          return {
+            matched: true,
+            templateId: result.artifactTemplate.id,
+            templateName: result.artifactTemplate.name,
+            artifactKind: result.artifactTemplate.artifactKind,
+            artifact: result.artifactTemplate.draft,
+          };
+        }
+        return { matched: false };
       },
     });
 

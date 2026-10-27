@@ -190,12 +190,14 @@ export class TraceService {
       });
   }
 
-  /** 更新 header 的运行中字段(意图、上下文 token、改写次数、模板命中等) */
+  /** 更新 header 的运行中字段(意图、产物形态、上下文 token、改写次数、模板命中等) */
   async updateRun(
     threadId: string,
     patch: Partial<{
       intent: string;
       intentSource: string;
+      /** competitor-driven-evolution-batch Round 14:形式路由产出的产物形态 */
+      artifactKind: string;
       resultKind: string;
       templateMatched: boolean;
       contextTokens: number;

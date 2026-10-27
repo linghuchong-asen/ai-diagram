@@ -51,9 +51,22 @@ class FakeUsageRepo {
   }
 }
 
-function makeService(repo: FakeUsageRepo, env: Record<string, string> = {}): QuotaService {
+/** 用户仓库桩(商业化闭环批次):QuotaService 读 user.vipExpireTime 判定会员额度 */
+class FakeUserRepo {
+  users = new Map<string, { id: string; vipExpireTime?: Date | null }>();
+
+  async findOne({ where: { id } }: any) {
+    return this.users.get(String(id)) ?? null;
+  }
+}
+
+function makeService(
+  repo: FakeUsageRepo,
+  env: Record<string, string> = {},
+  userRepo: FakeUserRepo = new FakeUserRepo(),
+): QuotaService {
   const config = { get: (key: string) => env[key] } as any;
-  return new QuotaService(repo as any, config);
+  return new QuotaService(repo as any, userRepo as any, config);
 }
 
 describe('todayKey', () => {
@@ -245,5 +258,61 @@ describe('addSessionUsage(会话级软上限)', () => {
     expect(svc.addSessionUsage('sB', 100).notice).toBeUndefined();
     svc.clearSession('sA');
     expect(svc.addSessionUsage('sA', 100).notice).toBeUndefined();
+  });
+});
+
+describe('会员额度（商业化闭环批次）', () => {
+  it('在期会员 → 生成额度 30 + bonus,视图带 vip 标记与到期时间', async () => {
+    const repo = new FakeUsageRepo();
+    repo.rows.set(`u1|${todayKey()}`, { generateCount: 5, bonusGenerate: 2 });
+    const userRepo = new FakeUserRepo();
+    userRepo.users.set('u1', { id: 'u1', vipExpireTime: new Date(Date.now() + 86_400_000) });
+    const svc = makeService(repo, {}, userRepo);
+    const usage = await svc.getDailyUsage('u1');
+    expect(usage.vip).toBe(true);
+    expect(usage.vipExpireTime).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(usage.generateLimit).toBe(32); // 30 + 2
+    // 用量 5 < 32 → 放行
+    await expect(svc.assertCanRun('u1')).resolves.toBeDefined();
+  });
+
+  it('已过期会员 → 回落免费档 3 + bonus', async () => {
+    const userRepo = new FakeUserRepo();
+    userRepo.users.set('u1', { id: 'u1', vipExpireTime: new Date(Date.now() - 1000) });
+    const svc = makeService(new FakeUsageRepo(), {}, userRepo);
+    const usage = await svc.getDailyUsage('u1');
+    expect(usage.vip).toBe(false);
+    expect(usage.vipExpireTime).toBeNull();
+    expect(usage.generateLimit).toBe(3);
+  });
+
+  it('VIP_DAILY_GENERATE_LIMIT 可覆盖会员额度', async () => {
+    const userRepo = new FakeUserRepo();
+    userRepo.users.set('u1', { id: 'u1', vipExpireTime: new Date(Date.now() + 86_400_000) });
+    const svc = makeService(new FakeUsageRepo(), { VIP_DAILY_GENERATE_LIMIT: '50' }, userRepo);
+    expect((await svc.getDailyUsage('u1')).generateLimit).toBe(50);
+  });
+
+  it('用户仓库异常 → 按非会员兜底,不阻断配额读取', async () => {
+    const badUserRepo = { findOne: jest.fn(async () => { throw new Error('db down'); }) };
+    const svc = makeService(new FakeUsageRepo(), {}, badUserRepo as any);
+    const usage = await svc.getDailyUsage('u1');
+    expect(usage.vip).toBe(false);
+    expect(usage.generateLimit).toBe(3);
+  });
+
+  it('额度用尽提示引导会员(429 hint 含会员话术)', async () => {
+    const repo = new FakeUsageRepo();
+    repo.rows.set(`u1|${todayKey()}`, { generateCount: 3, bonusGenerate: 0 });
+    const svc = makeService(repo);
+    await expect(svc.assertCanRun('u1')).rejects.toThrow('今日 AI 配额已用完');
+    try {
+      await svc.assertCanRun('u1');
+      throw new Error('应当抛出 QuotaExceededException');
+    } catch (err: any) {
+      // code 在 HttpException 的 response body 里；hint 需引导「开通会员」这一变现出口
+      expect(err.response?.code ?? err.code).toBe('AI_QUOTA_EXCEEDED');
+      expect(String(err.response?.hint ?? err.hint ?? '')).toContain('会员');
+    }
   });
 });

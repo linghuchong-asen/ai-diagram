@@ -8,6 +8,7 @@ import { Injectable } from '@nestjs/common';
 import { ReflectionIssue } from './evaluator';
 import { REFLECT_SYSTEM_PROMPT } from '../prompts/reflect.prompt';
 import { HUMAN_CONFIRM_FALLBACK_PROMPT, TOOL_DEGRADE_PROMPT } from '../prompts/fallback.prompt';
+import { ArtifactKind } from '../schemas/artifact.schema';
 
 export interface RewriteRequest {
   intent: 'generate' | 'modify';
@@ -16,6 +17,11 @@ export interface RewriteRequest {
   canvasSummary?: string;
   /** 当前草稿的节点/边摘要(generate 场景用于定位局部修正范围) */
   draftSummary?: string;
+  /**
+   * multi-artifact-batch:非 flowchart 产物形态。设置后修正提示词的措辞按形态调整
+   * (如「元素」替代「节点与边」),并附带该形态的校验要点,避免用流程图文案误导模型。
+   */
+  artifactKind?: ArtifactKind;
 }
 
 export interface RewriteResult {
@@ -50,19 +56,31 @@ export class Rewriter {
       ? blocking.map((i) => `- [${i.layer}${i.type ? `/${i.type}` : ''}] ${i.message}`).join('\n')
       : '- (无 error 级问题)';
 
+    // multi-artifact-batch:非 flowchart 形态的措辞与校验要点按形态替换(元素 ≠ 节点与边)
+    const isArtifact = !!req.artifactKind && req.artifactKind !== 'flowchart';
+    const ruleText = isArtifact
+      ? `校验规则要点:按 ${req.artifactKind} 形态的结构契约修正(层级/行列/分组/时序等结构问题),保持该形态 JSON 字段不变。`
+      : `校验规则要点:\n${REFLECT_SYSTEM_PROMPT}`;
+
     // 局部修正范围:只列出问题涉及的节点 id,其余部分明确要求原样保留
     const touchedIds = Array.from(new Set(blocking.flatMap((i) => i.nodeIds ?? [])));
     const scopeText = touchedIds.length
-      ? `本次只需修正与这些节点/边相关的部分: ${touchedIds.join(', ')}。其余节点与边必须原样保留,不得重命名、不得重排 id、不得增删无关元素。`
-      : '请只修正上述问题涉及的元素,其余节点与边必须原样保留,不得重命名、不得重排 id、不得增删无关元素。';
+      ? `本次只需修正与这些${isArtifact ? '元素' : '节点/边'}相关的部分: ${touchedIds.join(', ')}。其余${
+          isArtifact ? '元素' : '节点与边'
+        }必须原样保留,不得重命名、不得重排 id、不得增删无关元素。`
+      : `请只修正上述问题涉及的元素,其余${
+          isArtifact ? '元素' : '节点与边'
+        }必须原样保留,不得重命名、不得重排 id、不得增删无关元素。`;
 
     const canvasText = req.canvasSummary ? `当前画布:\n${req.canvasSummary}` : '';
     const draftText = req.draftSummary ? `当前草稿结构:\n${req.draftSummary}` : '';
 
     return [
-      '【局部修正指令】上一次输出未通过确定性校验。这是第 N 次修正,请做最小改动修复问题,不要重写整个流程。',
+      `【局部修正指令】上一次输出未通过确定性校验。这是第 N 次修正,请做最小改动修复问题,不要重写整个${
+        isArtifact ? '产物' : '流程'
+      }。`,
       '',
-      `校验规则要点:\n${REFLECT_SYSTEM_PROMPT}`,
+      ruleText,
       '',
       `未通过的校验问题:\n${issueText}`,
       '',
@@ -82,6 +100,7 @@ export class Rewriter {
    * 超限后的「人在回路」确认载荷(Task 9.2)
    * @param issues 未解决的 error 级问题
    * @param lastDraft 最后一次产出的结构(作为候选方案 1)
+   * @param artifactKind multi-artifact-batch:非 flowchart 形态时,候选数据是产物本体,提示文案按形态调整
    */
   buildConfirmPayload(input: {
     intent: 'generate' | 'modify';
@@ -90,9 +109,11 @@ export class Rewriter {
     lastOperations?: unknown;
     rewriteCount: number;
     maxRewrites: number;
+    artifactKind?: ArtifactKind;
   }): HumanConfirmPayload {
     const blocking = (input.issues ?? []).filter((i) => (i.severity ?? 'error') === 'error');
     const data = input.intent === 'generate' ? input.lastDraft : input.lastOperations;
+    const isArtifact = !!input.artifactKind && input.artifactKind !== 'flowchart';
 
     const candidates: HumanConfirmPayload['candidates'] = [];
     if (data) {
@@ -100,7 +121,9 @@ export class Rewriter {
         id: 'accept-current',
         label: '采用当前版本',
         data,
-        note: `已自动修正 ${input.rewriteCount}/${input.maxRewrites} 次,仍存在 ${blocking.length} 个结构问题;采用后可在画布上手动微调。`,
+        note: isArtifact
+          ? `已自动修正 ${input.rewriteCount}/${input.maxRewrites} 次,仍存在 ${blocking.length} 个结构问题;采用后可基于当前版本继续对话调整。`
+          : `已自动修正 ${input.rewriteCount}/${input.maxRewrites} 次,仍存在 ${blocking.length} 个结构问题;采用后可在画布上手动微调。`,
       });
     }
     candidates.push({

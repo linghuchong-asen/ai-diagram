@@ -593,6 +593,19 @@ a {
   bottom: 140px;
 }
 
+/* 快赢批次一(QW3)：可点击水印 —— 仅主文案一行恢复交互并带悬停反馈，整层其余区域仍不拦截画布 */
+.yt-watermark-link {
+  pointer-events: auto;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.yt-watermark-link:hover {
+  color: rgba(148, 163, 184, 0.85);
+  text-decoration: underline;
+}
+
 /* 分享页底部转化条：允许内嵌「去免费生成」链接点击（覆盖基础段的 pointer-events:none） */
 .yt-share-footnote {
   pointer-events: auto;

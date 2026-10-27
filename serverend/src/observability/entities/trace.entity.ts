@@ -31,6 +31,11 @@ export class TraceEntity {
   @Column({ name: 'intent_source', type: 'varchar', length: 16, nullable: true })
   intentSource: string;
 
+  /* competitor-driven-evolution-batch Round 14:产物形态(flowchart/mindmap/table/checklist/timeline),
+     形式路由后写入;旧行为 null。形态分布是本批次核心观测指标(区别于 intent 的一级路由) */
+  @Column({ name: 'artifact_kind', type: 'varchar', length: 16, nullable: true })
+  artifactKind: string;
+
   @Column({ name: 'status', type: 'varchar', length: 16, default: 'running' })
   status: TraceStatus;
 

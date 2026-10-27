@@ -2,7 +2,8 @@
 // 路由（经 nginx 剥离 /api 前缀后对外为 /api/share/...）：
 //   POST   /share/project/:projectId  创建分享（需登录，幂等）
 //   DELETE /share/project/:projectId  撤销分享（需登录）
-//   GET    /share/view/:token         免登录公开读取（仅限流守卫，无 JWT）
+//   GET    /share/view/:token         免登录公开读取（仅限流守卫；可选 Bearer 识别 owner）
+//   POST   /share/duplicate/:token    复制分享为我的项目（需登录，快赢批次一）
 // 鉴权说明：本模块守卫为 opt-in —— 未挂 JwtAuthGuard 的路由天然公开
 // （项目未使用 APP_GUARD 全局守卫，与 /api/health 同机制）。
 import {
@@ -66,12 +67,33 @@ export class ProjectShareController {
     return { revoked };
   }
 
-  /** 免登录公开读取：仅项目名 + 画布 JSON + 解锁态（Task 6）；限流防遍历/刷流量 */
+  /**
+   * 免登录公开读取：仅项目名 + 画布 JSON + 解锁态（Task 6）；限流防遍历/刷流量。
+   * 商业化闭环批次：请求若带合法 Bearer 令牌且为归属人 → 额外回传 isOwner/projectId
+   * （owner 解锁直达动线）；公开语义不变，令牌缺失/无效按纯访客处理。
+   */
   @Get('view/:token')
   @UseGuards(ShareRateLimitGuard)
   async viewShare(
     @Param('token') token: string,
-  ): Promise<{ projectName: string; editorData: unknown[]; unlocked: boolean }> {
-    return this.shareService.viewShare(token);
+    @Req() req: Request,
+  ): Promise<{ projectName: string; editorData: unknown[]; unlocked: boolean; isOwner?: boolean; projectId?: string }> {
+    const bearer = String(req?.headers?.authorization ?? '')
+      .trim()
+      .replace(/^Bearer\s+/i, '');
+    return this.shareService.viewShare(token, bearer || null);
+  }
+
+  /**
+   * 复制分享为我的项目（快赢批次一 QW2）：凭公开 token 复制画布为新项目。
+   * 需登录 —— 未登录访客由前端引导注册（注册后经 redirect 回分享页再点一次）。
+   */
+  @Post('duplicate/:token')
+  @UseGuards(JwtAuthGuard)
+  async duplicateShare(
+    @Param('token') token: string,
+    @Req() req: AuthedRequest,
+  ): Promise<{ projectId: string; projectName: string }> {
+    return this.shareService.duplicateShare(token, this.currentUserId(req));
   }
 }

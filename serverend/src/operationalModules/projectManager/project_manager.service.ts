@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProjectEntity } from './entities/project_manager.entity';
+import { UserEntity } from '../../user/entities/user.entity';
 import { DataSource, In, Repository } from 'typeorm';
 import { EditorDocumentService } from '../editorDocument/editor_document.service';
 import { EditorDocumentEntity } from '../editorDocument/entities/editor_document.entity';
@@ -9,6 +10,7 @@ import * as fs from 'fs';
 import { ConfigService } from '@nestjs/config';
 import { ProjectSearchService } from '../projectSearch/project_search.service';
 import { ensureProjectOwner } from './project-ownership';
+import { isVipActive } from '../../billing/membership';
 
 const logger = new Logger('ProjectService');
 
@@ -21,6 +23,8 @@ export class ProjectManagerService {
   constructor(
     @InjectRepository(ProjectEntity)
     private readonly projectRepository: Repository<ProjectEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
     private readonly dataSource: DataSource,
     // 需要使用其他模块的service作为依赖时，要在对应的模块中exports 一下，然后在当前的module文件中imports对应的模块
     private readonly editorDocumentService: EditorDocumentService,
@@ -90,11 +94,24 @@ export class ProjectManagerService {
 
   /** 获取指定项目(Task 11.2:归属校验,越权返回 403 统一文案) */
   async findById(id, userId?: string): Promise<ProjectEntity> {
+    // 商业化闭环批次:select 补 unlocked + userId —— 此前 unlocked 未查出,
+    // 付费解锁后预览页刷新仍拿到 undefined,水印永不消失(付费闭环断点);
+    // userId 未查出则 ensureProjectOwner 形同虚设(任意登录用户可读任意项目)。
     const project = await this.projectRepository.findOne({
-      select: ['id', 'project_name', 'project_desc'], // 指定返回那几列
+      select: ['id', 'project_name', 'project_desc', 'unlocked', 'userId'],
       where: { id }, // 查询id符合条件的行
     });
     ensureProjectOwner(project?.userId, userId);
+    // 会员免水印(商业化闭环批次):归属人在会员有效期内 → 视为已解锁(仅回传,不落库)
+    if (project && project.unlocked !== true && project.userId) {
+      const owner = await this.userRepository.findOne({
+        where: { id: String(project.userId) },
+        select: ['id', 'vipExpireTime'],
+      });
+      if (isVipActive(owner?.vipExpireTime)) {
+        project.unlocked = true;
+      }
+    }
     return project;
   }
 

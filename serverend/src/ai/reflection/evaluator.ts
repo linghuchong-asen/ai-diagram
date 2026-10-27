@@ -1,14 +1,20 @@
 // 语图技术方案 - 反思:两层确定性校验器
 // 文档:① Zod Schema 格式合法 → ② 图遍历结构合理
 // 失败 → 附失败原因走 Rewriter 局部修正(不重走完整主流程)
+// multi-artifact-batch:generate 分支按 artifactKind 扩展——flowchart 走既有 FlowDraft+GraphValidator,
+// 四新形态走各形态 Schema + artifact.validator 结构遍历(同一 error/warning 分级语义)。
 import { Injectable, Logger } from '@nestjs/common';
 import { FlowDraftSchema, FlowDraft } from '../schemas/flow-draft.schema';
 import { ModifyPatchOutputSchema, ModifyPatchOutput } from '../schemas/patch.schema';
 import { GraphValidator, GraphValidationResult } from './graph.validator';
+import { artifactSchemaFor } from '../schemas/artifact.schema';
+import { validateArtifact, NewArtifactKind } from './artifact.validator';
 
 export type ReflectionSubject =
   | { kind: 'generate'; draft: FlowDraft }
-  | { kind: 'modify'; patch: ModifyPatchOutput };
+  | { kind: 'modify'; patch: ModifyPatchOutput }
+  /** 多形态产物(multi-artifact-batch):data 已通过对应形态 Zod 层后再进入此处 */
+  | { kind: 'artifact'; artifactKind: NewArtifactKind; data: unknown };
 
 export interface ReflectionIssue {
   layer: 'format' | 'structure';
@@ -57,6 +63,17 @@ export class ReflectionEvaluator {
           message: `FlowDraft 格式不合法: ${parsed.error.issues.map((i) => i.message).join('; ')}`,
         });
       }
+    } else if (subject.kind === 'artifact') {
+      // 多形态:按形态取对应 Schema 校验(flowchart 不进入此分支,artifactSchemaFor 对其返回 null 属防御兜底)
+      const schema = artifactSchemaFor(subject.artifactKind);
+      const parsed = schema ? schema.safeParse(subject.data) : null;
+      if (parsed && !parsed.success) {
+        issues.push({
+          layer: 'format',
+          severity: 'error',
+          message: `${subject.artifactKind} 产物格式不合法: ${parsed.error.issues.map((i) => i.message).join('; ')}`,
+        });
+      }
     } else {
       const parsed = ModifyPatchOutputSchema.safeParse(subject.patch);
       if (!parsed.success) {
@@ -68,7 +85,7 @@ export class ReflectionEvaluator {
       }
     }
 
-    // 第二层:图遍历结构校验(仅 generate 场景需要)
+    // 第二层:图遍历结构校验(仅 generate 场景需要);多形态走 artifact.validator
     if (subject.kind === 'generate') {
       structure = this.graphValidator.validate(subject.draft);
       // warning 级(如 HAS_CYCLE 合法回环)也收进 issues 供透出,但不阻断
@@ -80,6 +97,11 @@ export class ReflectionEvaluator {
           nodeIds: i.detail ?? (i.nodeId ? [i.nodeId] : undefined),
           type: i.type,
         });
+      }
+    } else if (subject.kind === 'artifact') {
+      // 格式层失败(issues 已有 format error)时跳过结构遍历,避免对脏数据二次报错淹没根因
+      if (!issues.some((i) => i.layer === 'format')) {
+        issues.push(...validateArtifact({ kind: subject.artifactKind, data: subject.data }).issues);
       }
     }
 

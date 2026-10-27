@@ -44,6 +44,11 @@ export interface ChatRequest {
   projectId?: string;
   /** 匿名试用身份（免登录试用链路）：携带时改走 POST /ai/trial/chat（Task 3 增长方案） */
   trialId?: string;
+  /**
+   * 产物形态提示（multi-artifact-batch）：用户显式指定产物形态（浮窗快捷 chips 使用），
+   * 后端 FormRouter 最高优先级直通；白名单外值由后端 zod 校验拒绝（400）。
+   */
+  formHint?: ArtifactKind;
 }
 
 export interface ChatResponse {
@@ -75,9 +80,71 @@ export interface FlowDraft {
   edges: FlowDraftEdge[];
 }
 
+// ---------------------------------------------------------------------------
+// 多形态产物契约（multi-artifact-batch）：与后端 schemas/artifact.schema.ts 对齐（不 import 后端文件）
+// ---------------------------------------------------------------------------
+
+/** 产物形态：flowchart 为缺省值（向后兼容——旧响应无 artifactKind 时按 flowchart 消费） */
+export type ArtifactKind = 'flowchart' | 'mindmap' | 'table' | 'checklist' | 'timeline';
+
+/** 思维导图节点（递归树；id 全树唯一，前端转 X6 时作节点主键） */
+export interface MindMapNode {
+  id: string;
+  label: string;
+  children: MindMapNode[];
+}
+
+export interface MindMapDraft {
+  root: MindMapNode;
+}
+
+/** 对比表格：列为维度、行为对象；conclusion 为可选推荐结论 */
+export interface TableDraft {
+  columns: string[];
+  rows: string[][];
+  conclusion?: string;
+}
+
+/** 清单：分组 + 可勾选项；owner/due 为自由文本（材料里提到才填） */
+export interface ChecklistItem {
+  text: string;
+  owner?: string;
+  due?: string;
+}
+
+export interface ChecklistGroup {
+  title: string;
+  items: ChecklistItem[];
+}
+
+export interface ChecklistDraft {
+  groups: ChecklistGroup[];
+}
+
+/** 时间线：数组顺序即时间顺序；time 为自由文本标记（Day1 / 09:00 / 第 3 周） */
+export interface TimelineEvent {
+  time: string;
+  title: string;
+  detail?: string;
+}
+
+export interface TimelineDraft {
+  events: TimelineEvent[];
+}
+
+/**
+ * generate 结果：按 artifactKind 携带对应 payload。
+ * 兼容性：artifactKind 缺省 = flowchart（旧响应只有 flowDraft，行为零变化）；
+ * 消费侧（浮窗/artifacts 层）须以 artifactKind ?? 'flowchart' 分发。
+ */
 export interface GenerateResult {
   kind: 'generate';
-  flowDraft: FlowDraft;
+  artifactKind?: ArtifactKind;
+  flowDraft?: FlowDraft;
+  mindmapDraft?: MindMapDraft;
+  tableDraft?: TableDraft;
+  checklistDraft?: ChecklistDraft;
+  timelineDraft?: TimelineDraft;
 }
 
 export interface ModifyResult {

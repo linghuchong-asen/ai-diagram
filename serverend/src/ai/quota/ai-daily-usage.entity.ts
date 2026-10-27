@@ -40,6 +40,10 @@ export class AiDailyUsageEntity {
   @Column({ type: 'int', name: 'bonus_generate', default: 0 })
   bonusGenerate: number;
 
+  /** 邀请裂变批次:当日邀请奖励发放计数(每邀 1 人注册 +1,日上限 3,UPDATE WHERE < cap 防超发) */
+  @Column({ type: 'int', name: 'invite_reward_count', default: 0 })
+  inviteRewardCount: number;
+
   @UpdateDateColumn({ type: 'timestamp', name: 'updated_at' })
   updatedAt: Date;
 }

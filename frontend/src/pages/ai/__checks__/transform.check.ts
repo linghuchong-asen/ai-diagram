@@ -138,7 +138,9 @@ describe('node-type-config：配色与形状契约', () => {
     assertEqual(String(styled.label?.fill), '#111111', 'fontColor 未生效');
     assertEqual(styled.label?.fontSize, 18, 'fontSize 未生效');
     assertEqual(String(buildEdgeAttrs({ borderStyle: 'dashed' }).line?.strokeDasharray), '6 3', '边虚线映射错误');
-    assertEqual(String(buildEdgeAttrs().line?.stroke), '#A3B1BF', '边默认描边应为 #A3B1BF');
+    // Round D 修正存量断言漂移：边默认描边随 Neon Dark 重配色调整为 #7d8fb0
+    // （buildEdgeAttrs/useGraph 手动连线/ConfigEdge 三处同色，为有意行为；原 #A3B1BF 为旧主题色）
+    assertEqual(String(buildEdgeAttrs().line?.stroke), '#7d8fb0', '边默认描边应为 #7d8fb0（与手动连线同色）');
   });
 
   it('NODE_TYPE_LABEL 与配置中文标签同源', () => {
@@ -245,7 +247,8 @@ describe('to-x6：FlowDraft → X6 确定性转换', () => {
     assertDeepEqual(edge.target, { cell: 'n4', port: 'top' }, 'end 入桩应为 top');
     assertEqual(edge.labels, undefined, '无 label 的边不应生成 labels');
     assertDeepEqual(edge.connector, { name: 'normal' }, 'connector 应对齐既有画布约定');
-    assertEqual(String(edge.attrs?.line?.stroke), '#A3B1BF', '边默认描边错误');
+    // Round D 修正存量断言漂移：边默认描边 #7d8fb0（Neon Dark 主题，与手动连线同色）
+    assertEqual(String(edge.attrs?.line?.stroke), '#7d8fb0', '边默认描边错误');
 
     const labeled = toX6Edge(
       { id: 'e2', source: 'n2', target: 'n3', label: '提交' },

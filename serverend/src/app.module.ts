@@ -18,6 +18,10 @@ import { ProjectShareModule } from './operationalModules/projectShare/project_sh
 import { BillingModule } from './billing/billing.module';
 // Task 7:模板中心（GET /template/list 静态预置 12 个高频模板，公开端点免 JWT + 限流）
 import { TemplateModule } from './operationalModules/template/template.module';
+// Round B:代码年报（GET /annual/report 只读公开仓库统计，零 LLM 成本的魔性获客入口）
+import { AnnualModule } from './operationalModules/annual/annual.module';
+// Round J:链接→一图看懂（POST /digest/url 网页正文抓取，公开端点 + SSRF 防御）
+import { DigestFetchModule } from './operationalModules/digestFetch/digest-fetch.module';
 // import { ProjectSearchModule } from './operationalModules/projectSearch/project_search.module';
 // Task 13.1:轻量观测模块(@Global),graph.ts 9 阶段 trace 埋点依赖其中的 TraceService
 import { ObservabilityModule } from './observability/observability.module';
@@ -70,7 +74,11 @@ import { ObservabilityModule } from './observability/observability.module';
     // Task 6:按次付费解锁（虎皮椒通道未配置时自动降级赞助模式）
     BillingModule,
     // Task 7:模板中心（静态预置模板，公开端点仅限流守卫）
-    TemplateModule
+    TemplateModule,
+    // Round B 代码年报：只读 GitHub/Gitee 公开 API 的年度统计（公开端点，获客前锋）
+    AnnualModule,
+    // Round J 链接→一图看懂：网页正文抓取（公开端点 + 限流 + SSRF 防御）
+    DigestFetchModule
   ],
   controllers: [AppController], // 处理http请求，包括路由控制，向客户端返回响应
   providers: [AppService], // 服务提供者，处理具体的业务逻辑

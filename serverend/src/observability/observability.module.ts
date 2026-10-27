@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TraceEntity } from './entities/trace.entity';
 import { TraceStepEntity } from './entities/trace-step.entity';
 import { ObservabilityController } from './observability.controller';
+import { GrowthTrackController } from './growth-track.controller';
 import { TraceService } from './trace.service';
 import { GrowthEventService } from './growth-event.service';
 import { TRACE_RETENTION_DAYS } from './trace.summarize';
@@ -15,7 +16,7 @@ import { TRACE_RETENTION_DAYS } from './trace.summarize';
 @Global()
 @Module({
   imports: [TypeOrmModule.forFeature([TraceEntity, TraceStepEntity])],
-  controllers: [ObservabilityController],
+  controllers: [ObservabilityController, GrowthTrackController],
   // GrowthEventService:Task 4 增长事件埋点(register/generate/share_create...),
   // 经 @Global 导出后任何模块直接注入,业务模块无需各自 imports。
   providers: [TraceService, GrowthEventService],

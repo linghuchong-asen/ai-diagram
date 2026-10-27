@@ -1,10 +1,14 @@
 // 语图技术方案 - LangGraph 状态图编排
-// 节点:意图识别 → 上下文组装 → 工具(template_match) → 生成/修改 → 反思 → 工具;条件边 + 循环 + 重试
+// 节点:意图识别 → 形式路由(generate) → 上下文组装 → 工具(template_match,全形态) → 生成/修改 → 反思 → 工具;条件边 + 循环 + 重试
 // 本实现提供轻量状态机(遵循 LangGraph StateGraph 语义):
 //   节点函数更新状态,条件边决定下一个节点,循环(反思失败→Rewriter)由控制器控制。
 // 若 @langchain/langgraph 可用,可无缝迁移到官方 StateGraph。
 // Task 8.1:工具调用一律经 ToolExecutor 统一出口(白名单 + zod + 重试 + 封顶 + 归一化)。
 // Task 9.2:反思修正超限不再直接报错,转「人在回路」挂起,由前端确认后续跑。
+// multi-artifact-batch:generate 意图经 FormRouter 二级路由选择产物形态(flowchart/mindmap/table/checklist/timeline),
+//   上下文系统提示词、LLM 提示词、解析校验、Rewriter 修正、人在回路候选均按形态分发;flowchart 链路行为不变。
+// competitor-driven-evolution-batch Round 13:template_match 模板库扩展到全形态,
+//   四新形态高频请求(会议待办/技术选型/三天两晚/读书笔记)命中即短路秒回(零 LLM token)。
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { AgentState, createInitialState } from './state';
 import { IntentRecognizer } from '../intent/intent.recognizer';
@@ -16,10 +20,14 @@ import { ToolExecutor } from '../tools/tool-executor';
 import { ToolRegistry } from '../tools/tool.registry';
 import { ToolResult } from '../tools/tool.types';
 import { LlmFactory } from '../adapters/llm.factory';
-import { SYSTEM_PROMPT, anchorSystemPrompt } from '../prompts/system.prompt';
+import { anchorSystemPrompt } from '../prompts/system.prompt';
 import { buildGeneratePrompt } from '../prompts/generate.prompt';
 import { buildModifyPrompt } from '../prompts/modify.prompt';
+import { buildArtifactGeneratePrompt, artifactSystemPromptFor } from '../prompts/artifact.prompts';
 import { GENERIC_ERROR_PROMPT } from '../prompts/fallback.prompt';
+// multi-artifact-batch:形式路由(generate 意图内的二级路由)与产物契约
+import { FormRouter } from '../form/form.router';
+import { ArtifactKind, ARTIFACT_PAYLOAD_FIELD, artifactSchemaFor } from '../schemas/artifact.schema';
 // Task 11.6:Prompt 注入防御 —— 意图识别前做输入模式过滤(命中清洗或拒绝)
 import { INJECTION_REFUSAL, filterUserInput } from '../security/prompt-injection';
 // Task 10.5:实体槽 ingest 需要把结构化结果序列化为文本(复用 error-sanitizer 的循环引用兜底序列化)
@@ -67,6 +75,8 @@ export class FlowStateGraph {
     private readonly rollingSummary: RollingSummaryService,
     private readonly entitySlot: SessionEntitySlotService,
     private readonly toolRegistry: ToolRegistry,
+    /** multi-artifact-batch:形式路由器(generate 意图内决定产物形态) */
+    private readonly formRouter: FormRouter,
     // Task 10.2/10.5:embedding provider 可插拔;未装配或不可用时向量路与话题切换自动退化
     @Optional() @Inject(EMBEDDING_PROVIDER) private readonly embedder?: EmbeddingProvider,
     /**
@@ -176,6 +186,35 @@ export class FlowStateGraph {
         intentSource: state.intentSource,
       });
 
+      // ---- 节点 1.5:形式路由(multi-artifact-batch) ----
+      // generate 意图下决定「产什么形态」:formHint 直通 → 关键词规则 → LLM 兜底 → 默认 flowchart。
+      // 恢复执行(人在回路 retry)时 artifactKind 已预置,跳过二次路由保持形态稳定。
+      if (state.intent === 'generate' && !state.artifactKind) {
+        const formRouteStartedAt = Date.now();
+        // R15:第三参传会话形态累计(AiService 台账),规则歧义/未命中时按会话偏好兜底采信
+        const formRoute = await this.formRouter.route(state.query, state.formHint, state.sessionFormUsage);
+        state.artifactKind = formRoute.kind;
+        state.artifactSource = formRoute.source;
+        state.artifactReasons = formRoute.reasons;
+        this.logger.debug(
+          `形式路由: ${formRoute.kind} (source=${formRoute.source}, llm=${formRoute.llmAttempted}, reasons=${formRoute.reasons.join(' / ')})`,
+        );
+        // competitor-driven-evolution-batch Round 14:形式路由观测埋点——
+        // 形态分布/路由来源(hint/rule/llm/default)/是否消耗 LLM 兜底,是本批次的核心观测指标;
+        // 未装配 TraceService 时为 no-op(旁路,失败不影响主链路)
+        await this.traceService?.recordStep({
+          threadId: state.threadId,
+          stepName: TRACE_STEPS.FORM_ROUTE,
+          status: 'ok',
+          input: { formHint: state.formHint ?? null, query: state.query.slice(0, 100) },
+          output: formRoute.kind,
+          startedAt: formRouteStartedAt,
+          usageSource: formRoute.llmAttempted ? 'estimate' : 'none',
+          meta: { kind: formRoute.kind, source: formRoute.source, llmAttempted: formRoute.llmAttempted },
+        });
+        await this.traceService?.updateRun(state.threadId, { artifactKind: formRoute.kind });
+      }
+
       // ---- 节点 2:上下文组装(按意图差异化) ----
       const contextStartedAt = Date.now();
       const recentTurns = state.sessionId ? await this.loadRecentTurns(state) : [];
@@ -195,7 +234,9 @@ export class FlowStateGraph {
         recentTurns,
         summaries,
         retrieved,
-        systemPrompt: anchorSystemPrompt(SYSTEM_PROMPT), // Task 11.6:首尾角色锚定包装
+        // multi-artifact-batch:按产物形态注入对应系统提示词(flowchart 仍是 SYSTEM_PROMPT,行为不变);
+        // 首尾角色锚定包装(Task 11.6)对所有形态统一生效
+        systemPrompt: anchorSystemPrompt(artifactSystemPromptFor(state.artifactKind ?? 'flowchart')),
         // Task 10.5:实体保真段(sessionEntitySlot),不参与截断
         entities: state.sessionId ? this.entitySlot.render(state.sessionId) : '',
         // Task 10.4:项目段(命名空间限定在 projectId 内)
@@ -233,11 +274,36 @@ export class FlowStateGraph {
       await this.traceService?.updateRun(state.threadId, { contextTokens });
 
       // ---- 节点 3:工具调用(template_match,generate 场景预检;Task 8.1) ----
+      // competitor-driven-evolution-batch Round 13:模板库扩展到全形态——
+      //   flowchart 命中返回 flowDraft(兼容红线:result 不带 artifactKind);
+      //   四新形态命中返回对应产物本体,按 ARTIFACT_PAYLOAD_FIELD 组装 result;
+      //   任何形态未命中/失败都继续走 LLM 生成(失败时工具已返回受控降级话术,不影响主链路)
       if (state.intent === 'generate') {
-        const toolResult = await this.callTool('template_match', { query: state.query }, state);
-        const data = toolResult.data as { matched?: boolean; draft?: FlowDraft } | undefined;
+        const templateKind: ArtifactKind = state.artifactKind ?? 'flowchart';
+        const toolResult = await this.callTool(
+          'template_match',
+          { query: state.query, artifactKind: templateKind },
+          state,
+        );
+        const data = toolResult.data as
+          | { matched?: boolean; draft?: FlowDraft; artifactKind?: ArtifactKind; artifact?: unknown }
+          | undefined;
         state.templateMatched = toolResult.status === 'ok' && data?.matched === true;
-        if (state.templateMatched && data?.draft) {
+        if (state.templateMatched && templateKind !== 'flowchart' && data?.artifact) {
+          // 新形态模板命中:确定性程序优先,不消耗大模型 token(秒回)
+          this.logger.log(`模板命中短路(${templateKind}): 直接使用内置模板产物,跳过 LLM 生成`);
+          state.artifact = data.artifact;
+          state.reflectionValid = true;
+          state.result = {
+            kind: 'generate',
+            artifactKind: templateKind,
+            [ARTIFACT_PAYLOAD_FIELD[templateKind]]: data.artifact,
+          };
+          await this.persistTurn(state);
+          await this.finishTrace(state, runStartedAt, contextTokens);
+          return { state };
+        }
+        if (state.templateMatched && templateKind === 'flowchart' && data?.draft) {
           // 模板命中直接短路返回(确定性程序优先,不消耗大模型 token)
           this.logger.log(`模板命中短路: 直接使用内置模板结构,跳过 LLM 生成`);
           state.draft = data.draft;
@@ -247,7 +313,6 @@ export class FlowStateGraph {
           await this.finishTrace(state, runStartedAt, contextTokens);
           return { state };
         }
-        // 未命中/失败:继续走 LLM 生成(失败时工具已返回受控降级话术,不影响主链路)
       }
 
       // ---- 节点 4:生成/修改(LLM 调用,CoT 流式) ----
@@ -328,6 +393,8 @@ export class FlowStateGraph {
     /** 最后一次「格式合法」的产出:作为人在回路的候选方案 1 */
     let lastDraft: FlowDraft | undefined;
     let lastPatch: ModifyPatchOutput | undefined;
+    /** multi-artifact-batch:非 flowchart 形态最后一次合法产物(人在回路候选) */
+    let lastArtifact: unknown;
 
     while (true) {
       raw = await this.callLlm(state, options, loop.retryCount);
@@ -371,7 +438,78 @@ export class FlowStateGraph {
         continue;
       }
 
-      // generate 场景:两层确定性校验(Zod + 图遍历)
+      // ---- generate + 非 flowchart 形态(multi-artifact-batch):按形态解析 → 结构校验 → 修正循环 ----
+      // 循环语义与 flowchart 完全一致:格式/结构失败 → Rewriter 局部修正(≤maxRewrites)→ 超限转人在回路
+      const artifactKind: ArtifactKind = state.artifactKind ?? 'flowchart';
+      if (artifactKind !== 'flowchart') {
+        const validateStartedAt = Date.now();
+        const parsed = await this.parseArtifactOutput(raw, artifactKind);
+        if (parsed.ok) {
+          lastArtifact = parsed.data;
+          const reflection = this.reflection.evaluate({ kind: 'artifact', artifactKind, data: parsed.data! });
+          await this.recordReflection(state, 'generate', validateStartedAt, {
+            passed: reflection.valid,
+            blocking: reflection.blockingIssues,
+            warnings: reflection.warnings,
+            layer: 'structure',
+          });
+          if (reflection.valid) {
+            state.artifact = parsed.data;
+            state.reflectionValid = true;
+            state.reflectionIssues = reflection.warnings;
+            state.result = {
+              kind: 'generate',
+              artifactKind,
+              [ARTIFACT_PAYLOAD_FIELD[artifactKind]]: parsed.data,
+            };
+            return;
+          }
+          const issues = reflection.blockingIssues;
+          if (!loop.canRetry()) {
+            await this.suspendForHumanConfirm(state, 'generate', issues, lastDraft, undefined, artifactKind, lastArtifact);
+            return;
+          }
+          loop.consume();
+          state.rewriteCount = loop.retryCount;
+          state.reflectionIssues = issues;
+          state.contextText = this.rewriter.buildCorrectionPrompt({
+            intent: 'generate',
+            artifactKind,
+            rawOutput: raw,
+            issues,
+            draftSummary: summarizeArtifact(artifactKind, lastArtifact),
+          });
+          await this.recordRewrite(state, 'generate', issues);
+          continue;
+        }
+
+        const issues: ReflectionIssue[] = [
+          { layer: 'format', severity: 'error', message: parsed.error ?? 'JSON 解析失败' },
+        ];
+        await this.recordReflection(state, 'generate', validateStartedAt, {
+          passed: false,
+          blocking: issues,
+          layer: 'format',
+        });
+        if (!loop.canRetry()) {
+          await this.suspendForHumanConfirm(state, 'generate', issues, lastDraft, undefined, artifactKind, lastArtifact);
+          return;
+        }
+        loop.consume();
+        state.rewriteCount = loop.retryCount;
+        state.reflectionIssues = issues;
+        state.contextText = this.rewriter.buildCorrectionPrompt({
+          intent: 'generate',
+          artifactKind,
+          rawOutput: raw,
+          issues,
+          draftSummary: summarizeArtifact(artifactKind, lastArtifact),
+        });
+        await this.recordRewrite(state, 'generate', issues);
+        continue;
+      }
+
+      // generate 场景(flowchart):两层确定性校验(Zod + 图遍历)——既有链路,行为不变
       const validateStartedAt = Date.now();
       const parsed = await this.parseGenerateOutput(raw);
       if (parsed.ok) {
@@ -445,6 +583,9 @@ export class FlowStateGraph {
     issues: ReflectionIssue[],
     lastDraft?: FlowDraft,
     lastPatch?: ModifyPatchOutput,
+    /** multi-artifact-batch:非 flowchart 形态时,候选方案数据是产物本体而非 FlowDraft */
+    artifactKind?: ArtifactKind,
+    lastArtifact?: unknown,
   ): Promise<void> {
     state.reflectionValid = false;
     state.reflectionIssues = issues;
@@ -453,10 +594,12 @@ export class FlowStateGraph {
     state.confirmPayload = this.rewriter.buildConfirmPayload({
       intent,
       issues,
-      lastDraft,
+      // artifact 形态:把产物作为候选方案数据(accept 时由 service 按形态还原成对应 payload)
+      lastDraft: artifactKind && artifactKind !== 'flowchart' ? lastArtifact : lastDraft,
       lastOperations: lastPatch?.operations,
       rewriteCount: state.rewriteCount,
       maxRewrites: state.maxRewrites,
+      artifactKind,
     });
     this.logger.warn(
       `反思修正超限(${state.rewriteCount}/${state.maxRewrites}),转人在回路等待确认: ${issues
@@ -481,11 +624,14 @@ export class FlowStateGraph {
   private async callLlm(state: AgentState, options: GraphRunOptions, attempt = 0): Promise<string> {
     const models = this.llmFactory.getModels();
     const llm = models.large;
-    // Task 9.3:generate / modify 分别走各自的提示词构造器,不在编排层手拼 role
+    // Task 9.3:generate / modify 分别走各自的提示词构造器,不在编排层手拼 role;
+    // multi-artifact-batch:generate 且非 flowchart 时按形态分发专属提示词(契约不同)
     const messages =
       state.intent === 'modify'
         ? buildModifyPrompt({ context: state.contextText! })
-        : buildGeneratePrompt({ context: state.contextText! });
+        : state.artifactKind && state.artifactKind !== 'flowchart'
+          ? buildArtifactGeneratePrompt(state.artifactKind, { context: state.contextText! })
+          : buildGeneratePrompt({ context: state.contextText! });
 
     let full = '';
     // 思考流:记录 <thinking>...</thinking> 区间内的 token
@@ -577,6 +723,32 @@ export class FlowStateGraph {
       const patch = JSON.parse(json) as ModifyPatchOutput;
       const parsed = ModifyPatchOutputSchema.safeParse(patch);
       return parsed.success ? { ok: true, patch: parsed.data } : { ok: false, error: parsed.error.message };
+    } catch (e: any) {
+      return { ok: false, error: e?.message ?? 'JSON 解析失败' };
+    }
+  }
+
+  /**
+   * multi-artifact-batch:按形态解析 LLM 输出(mindmap/table/checklist/timeline)。
+   * 与 parseGenerateOutput 同构:超长拦截 → extractJson → 形态 Schema(Zod)格式校验。
+   */
+  private async parseArtifactOutput(
+    raw: string,
+    kind: ArtifactKind,
+  ): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+    if (raw && raw.length > this.maxOutputChars) {
+      return { ok: false, error: `输出超长(${raw.length} 字符 > 上限 ${this.maxOutputChars}),已按格式问题拦截` };
+    }
+    const json = extractJson(raw);
+    if (!json) return { ok: false, error: '未找到合法 JSON' };
+    const schema = artifactSchemaFor(kind);
+    if (!schema) return { ok: false, error: `形态 ${kind} 无对应 Schema(应走 flowchart 链路)` };
+    try {
+      const data = JSON.parse(json);
+      const parsed = schema.safeParse(data);
+      return parsed.success
+        ? { ok: true, data: parsed.data }
+        : { ok: false, error: `${kind} 格式不合法: ${parsed.error.issues.map((i) => i.message).join('; ')}` };
     } catch (e: any) {
       return { ok: false, error: e?.message ?? 'JSON 解析失败' };
     }
@@ -841,5 +1013,41 @@ export function summarizeDraft(draft?: FlowDraft): string | undefined {
   const nodes = draft.nodes.map((n) => `- ${n.id}: ${n.label}(${n.type})`).join('\n');
   const edges = draft.edges.map((e) => `- ${e.id}: ${e.source} → ${e.target}${e.label ? `(${e.label})` : ''}`).join('\n');
   return `节点:\n${nodes || '(无)'}\n边:\n${edges || '(无)'}`;
+}
+
+/**
+ * multi-artifact-batch:非 flowchart 产物的结构摘要(供 Rewriter 局部修正定位)。
+ * 与 summarizeDraft 同一原则:只给定位所需的骨架信息,不塞完整 JSON。
+ */
+export function summarizeArtifact(kind: ArtifactKind, data: unknown): string | undefined {
+  if (data == null) return undefined;
+  try {
+    if (kind === 'mindmap') {
+      const lines: string[] = [];
+      const walk = (node: { id: string; label: string; children: any[] }, depth: number) => {
+        lines.push(`${'  '.repeat(depth - 1)}- ${node.id}: ${node.label}`);
+        for (const child of node.children ?? []) walk(child, depth + 1);
+      };
+      walk((data as { root: any }).root, 1);
+      return `思维导图结构:\n${lines.join('\n')}`;
+    }
+    if (kind === 'table') {
+      const table = data as { columns: string[]; rows: string[][] };
+      return `表格结构: 列[${table.columns.join(' | ')}],共 ${table.rows.length} 行(行首列: ${table.rows
+        .map((r) => r[0])
+        .join('、')})`;
+    }
+    if (kind === 'checklist') {
+      const draft = data as { groups: Array<{ title: string; items: unknown[] }> };
+      return `清单结构: ${draft.groups.map((g) => `${g.title}(${g.items.length}项)`).join('、')}`;
+    }
+    if (kind === 'timeline') {
+      const draft = data as { events: Array<{ time: string; title: string }> };
+      return `时间线结构: ${draft.events.map((e) => `${e.time}-${e.title}`).join('、')}`;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 

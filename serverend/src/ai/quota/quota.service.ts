@@ -11,12 +11,16 @@ import { HttpException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { AiDailyUsageEntity } from './ai-daily-usage.entity';
 import { IntentType } from '../schemas/chat.schema';
+import { UserEntity } from '../../user/entities/user.entity';
+import { isVipActive } from '../../billing/membership';
 
 /** 默认配额(环境变量可覆盖) */
 // Task 2 商业化收紧:免费生成档从 200/日 改 3/日(env AI_DAILY_GENERATE_LIMIT 可覆盖,风险兜底)
 export const DEFAULT_DAILY_GENERATE_LIMIT = 3;
 export const DEFAULT_DAILY_MODIFY_LIMIT = 500;
 export const DEFAULT_DAILY_TOKEN_LIMIT = 500_000;
+/** 会员月卡生成额度(商业化闭环批次):会员在期时替代免费档基础额度(env VIP_DAILY_GENERATE_LIMIT 可覆盖) */
+export const DEFAULT_VIP_DAILY_GENERATE_LIMIT = 30;
 /** 会话级软上限:达到阈值的 80% 即在响应中附提示(security.md:主动提示,不中断) */
 export const DEFAULT_SESSION_TOKEN_SOFT_LIMIT = 100_000;
 export const SESSION_SOFT_NOTICE_RATIO = 0.8;
@@ -32,12 +36,16 @@ export interface DailyUsageView {
   generateCount: number;
   modifyCount: number;
   tokens: number;
-  /** 生效生成额度 = 基础 limit + 当日分享奖励(Task 2;前端沿用原字段即可显示正确额度) */
+  /** 生效生成额度 = (会员? 会员额度 : 免费基础额度) + 当日分享奖励(Task 2;前端沿用原字段即可显示正确额度) */
   generateLimit: number;
-  /** 当日分享获赠次数(新增字段,便于前端展示「含分享奖励 +N」) */
+  /** 当日分享获赠次数(便于前端展示「含分享奖励 +N」) */
   bonusGenerate: number;
   modifyLimit: number;
   tokenLimit: number;
+  /** 会员是否在期(商业化闭环批次;前端展示会员标识) */
+  vip: boolean;
+  /** 会员到期时间 ISO 字符串(在期时才有值;从未开通/已过期为 null) */
+  vipExpireTime: string | null;
 }
 
 /** 用户级配额超限:429 + 明确错误码与提示(controller 直接透传) */
@@ -71,11 +79,18 @@ export class QuotaService {
   constructor(
     @InjectRepository(AiDailyUsageEntity)
     private readonly usageRepo: Repository<AiDailyUsageEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepo: Repository<UserEntity>,
     private readonly config: ConfigService,
   ) {}
 
   private get generateLimit(): number {
     return this.positiveInt('AI_DAILY_GENERATE_LIMIT', DEFAULT_DAILY_GENERATE_LIMIT);
+  }
+
+  /** 会员月卡生成额度(env VIP_DAILY_GENERATE_LIMIT 可覆盖) */
+  private get vipGenerateLimit(): number {
+    return this.positiveInt('VIP_DAILY_GENERATE_LIMIT', DEFAULT_VIP_DAILY_GENERATE_LIMIT);
   }
 
   private get modifyLimit(): number {
@@ -106,13 +121,30 @@ export class QuotaService {
       bonusGenerate: 0,
       modifyLimit: this.modifyLimit,
       tokenLimit: this.tokenLimit,
+      vip: false,
+      vipExpireTime: null,
     };
     if (!userId) return empty;
     try {
+      // 会员态判定(商业化闭环批次):读用户表 vip_expire_time;查询失败按非会员处理,不阻断
+      let vip = false;
+      let vipExpireTime: string | null = null;
+      try {
+        const user = await this.userRepo.findOne({
+          where: { id: String(userId) },
+          select: ['id', 'vipExpireTime'],
+        });
+        vip = isVipActive(user?.vipExpireTime);
+        if (vip && user?.vipExpireTime) {
+          vipExpireTime = new Date(user.vipExpireTime).toISOString();
+        }
+      } catch (err) {
+        this.logger.warn(`读取会员态失败(按非会员处理): ${(err as Error)?.message ?? err}`);
+      }
       const row = await this.usageRepo.findOne({
         where: { userId: String(userId), day: todayKey() },
       });
-      // Task 2:分享获赠 bonus_generate 提升生效生成额度(基础 limit + bonus)
+      // Task 2:分享获赠 bonus_generate 提升生效生成额度(会员/免费基础额度 + bonus)
       const bonusGenerate = Number(row?.bonusGenerate) || 0;
       return {
         ...empty,
@@ -120,7 +152,9 @@ export class QuotaService {
         modifyCount: Number(row?.modifyCount) || 0,
         tokens: Number(row?.tokens) || 0,
         bonusGenerate,
-        generateLimit: this.generateLimit + bonusGenerate,
+        generateLimit: (vip ? this.vipGenerateLimit : this.generateLimit) + bonusGenerate,
+        vip,
+        vipExpireTime,
       };
     } catch (err) {
       this.logger.warn(`读取每日用量失败(按 0 处理): ${(err as Error)?.message ?? err}`);
@@ -141,7 +175,7 @@ export class QuotaService {
         scope: '生成次数',
         used: usage.generateCount,
         limit: usage.generateLimit,
-        hint: '分享项目可获得额外生成次数（每日最多 +3），或明日再试。',
+        hint: `分享项目可获得额外生成次数（每日最多 +3）；开通会员月卡每日可生成 ${DEFAULT_VIP_DAILY_GENERATE_LIMIT} 次；模板一键生成不消耗额度；或明日再试。`,
       });
     }
     if (usage.modifyCount >= usage.modifyLimit) {

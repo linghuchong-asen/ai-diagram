@@ -37,6 +37,9 @@ export function xunhupaySign(
 
 @Injectable()
 export class XunhupayAdapter implements PaymentAdapter {
+  /** 通道名（落库 order.channel 用于对账） */
+  readonly name = 'xunhupay';
+
   /** 通道是否已配置：XUNHU_APP_ID 与 XUNHU_APP_SECRET 齐全才视为已配置 */
   isConfigured(): boolean {
     return Boolean(process.env.XUNHU_APP_ID && process.env.XUNHU_APP_SECRET);
@@ -71,8 +74,10 @@ export class XunhupayAdapter implements PaymentAdapter {
       version: '2.0',
       // 服务端异步回调端点（验签 + 放行解锁都在此处理）；经 nginx 对外路径带 /api 前缀
       notify_url: `${baseUrl}/api/billing/notify/xunhupay`,
-      // 支付完成后浏览器回跳的前端页面
-      callback: `${callbackBase}/unlock-result`,
+      // 支付完成后浏览器回跳的前端页面：携带订单上下文，回跳页轮询查单后
+      // 跳回预览页（unlock 单）或首页（vip 单）。此前裸 /unlock-result 未注册路由，
+      // 付费完成落地 404（商业化闭环批次修复）。
+      callback: `${callbackBase}/unlock-result?orderId=${encodeURIComponent(order.id)}&kind=${order.kind ?? 'unlock'}${order.projectId ? `&projectId=${encodeURIComponent(String(order.projectId))}` : ''}`,
     };
 
     const hash = xunhupaySign(params, process.env.XUNHU_APP_SECRET as string);

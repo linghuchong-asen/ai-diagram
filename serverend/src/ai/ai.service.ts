@@ -19,6 +19,8 @@ import { CheckpointService } from './memory/short-term/checkpoint.memory';
 import { LongTermMemoryService } from './memory/long-term/long-term.store';
 import { UserProfileService } from './memory/profile/user.profile';
 import { ChatRequest, AiResult, IntentType, TrialChatRequest } from './schemas/chat.schema';
+// multi-artifact-batch:产物形态枚举与 payload 字段映射(accept 还原候选时使用)
+import { ArtifactKind, ARTIFACT_PAYLOAD_FIELD } from './schemas/artifact.schema';
 import { CanvasNode } from './schemas/node.schema';
 import { HumanConfirmPayload } from './reflection/rewriter';
 import { QuotaService, todayKey } from './quota/quota.service';
@@ -35,6 +37,8 @@ export interface ChatInitDto {
   intent?: IntentType;
   /** Task 3 免登录试用:匿名身份标识,生成完成的增长埋点携带 */
   trialId?: string;
+  /** multi-artifact-batch:用户显式指定的产物形态(前端快捷 chips/下拉;FormRouter 最高优先级) */
+  formHint?: ArtifactKind;
 }
 
 /** 确认动作(Task 9.5):accept = 采用候选方案;retry = 补充约束后重跑 */
@@ -57,8 +61,13 @@ export type ResultView =
   | { status: 'need_confirm'; data: HumanConfirmPayload }
   | { status: 'error'; message: string };
 
-/** Task 3 免登录试用防线:单 IP 每日 3 次;全局每日默认 100(env AI_TRIAL_DAILY_GLOBAL_LIMIT 可覆盖) */
-const TRIAL_PER_IP_PER_DAY = 3;
+/** Task 3 免登录试用防线(快赢批次一 QW4 调整):
+ *  单 trialId 每日 2 次(env AI_TRIAL_PER_ID_PER_DAY 可覆盖) —— Gamma 教训:
+ *  用户的第二次输入往往是修正第一次结果("改一下XX"),只给 1 次会在 aha 真正发生前掐断,
+ *  而「对话改图」恰是语图核心差异化体验,必须让访客走到第二步;
+ *  同 IP 每日 6 次(2 次/身份 × 余量,防校园 NAT 误伤);全局每日默认 100 不变(成本总闸)。 */
+const DEFAULT_TRIAL_PER_ID_PER_DAY = 2;
+const TRIAL_PER_IP_PER_DAY = 6;
 const DEFAULT_TRIAL_DAILY_GLOBAL_LIMIT = 100;
 /** 试用台账记录上限(防进程内 Map 无界增长,超限时清理非当日记录;照抄限流 Guard 的 sweepExpired 模式) */
 const MAX_TRIAL_LEDGER_KEYS = 10000;
@@ -67,12 +76,18 @@ const MAX_TRIAL_LEDGER_KEYS = 10000;
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
-  /** 匿名台账:trialId → 当日已用次数(当日 TTL;单次试用,重启清零) */
+  /** 匿名台账:trialId → 当日已用次数(当日 TTL;每日 2 次,重启清零) */
   private readonly trialIdUsage = new Map<string, { day: string; used: number }>();
   /** IP 日台账:ip → 当日次数(防清 localStorage 换 trialId 刷) */
   private readonly trialIpUsage = new Map<string, { day: string; count: number }>();
   /** 全局日计数:当日全站试用总量(成本总闸) */
   private trialGlobalUsage = { day: '', count: 0 };
+  /**
+   * 会话形态台账(competitor-driven-evolution-batch Round 15):sessionId → 当日各形态累计产出次数。
+   * 与 trialIdUsage 同款进程内当日台账(重启清零/多实例需换 Redis——单实例公测期可接受);
+   * createThread 时读出传入 graph,FormRouter 在规则歧义/未命中时按偏好兜底(绝不覆盖 formHint)。
+   */
+  private readonly sessionFormLedger = new Map<string, { day: string; counts: Partial<Record<ArtifactKind, number>> }>();
 
   constructor(
     private readonly graph: FlowStateGraph,
@@ -116,25 +131,32 @@ export class AiService {
       // Task 3 免登录试用:预置意图 + 匿名身份(埋点携带);登录链路均为 undefined,行为不变
       intent: dto.intent,
       trialId: dto.trialId,
+      // multi-artifact-batch:产物形态提示直传(FormRouter formHint 直通)
+      formHint: dto.formHint,
+      // R15:会话内各形态累计(当日台账快照),FormRouter 规则歧义时按偏好兜底采信
+      sessionFormUsage: sessionId ? this.readSessionFormUsage(sessionId) : undefined,
     });
 
     return { threadId };
   }
 
   /**
-   * 1') Task 3 免登录单次试用:匿名跑一次 generate(无 canvas、不扣用户配额、不写 ai_daily_usage)。
+   * 1') Task 3 免登录试用:匿名跑 generate(无 canvas、不扣用户配额、不写 ai_daily_usage)。
    * 三层防线(均为进程内台账,重启清零 —— 单实例公测期可接受;多实例需换 Redis):
-   *   1) trialId 当日已用 → 429 TRIAL_USED(同一匿名身份单次试用);
-   *   2) 同 IP 当日 ≥3 次 → 429 TRIAL_BUSY(防清 localStorage 换 trialId 刷);
+   *   1) trialId 当日 ≥ AI_TRIAL_PER_ID_PER_DAY(默认 2)次 → 429 TRIAL_USED(同一匿名身份日限);
+   *   2) 同 IP 当日 ≥6 次 → 429 TRIAL_BUSY(防清 localStorage 换 trialId 刷);
    *   3) 全局当日 ≥ AI_TRIAL_DAILY_GLOBAL_LIMIT(默认 100)→ 429 TRIAL_BUSY(全局成本总闸)。
    */
   async startTrial(dto: TrialChatRequest, ip: string): Promise<{ threadId: string }> {
     const day = todayKey();
 
     const idRecord = this.trialIdUsage.get(dto.trialId);
-    if (idRecord?.day === day && idRecord.used >= 1) {
+    if (idRecord?.day === day && idRecord.used >= this.trialPerIdLimit) {
       throw new HttpException(
-        { code: 'TRIAL_USED', message: '试用次数已用完，注册后每日可生成 3 次' },
+        {
+          code: 'TRIAL_USED',
+          message: `今日免费试用次数已用完（每日 ${this.trialPerIdLimit} 次），注册后每日可生成 3 次`,
+        },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -159,7 +181,10 @@ export class AiService {
 
     // 通过:三本台账各自记账(先清理过期记录,防 Map 无界增长)
     this.sweepTrialLedger(day);
-    this.trialIdUsage.set(dto.trialId, { day, used: 1 });
+    this.trialIdUsage.set(dto.trialId, {
+      day,
+      used: (idRecord?.day === day ? idRecord.used : 0) + 1,
+    });
     if (ipRecord?.day === day) {
       ipRecord.count += 1;
     } else {
@@ -179,6 +204,8 @@ export class AiService {
       intent: 'generate',
       trialId: dto.trialId,
       sessionId: `trial:${dto.trialId}`,
+      // multi-artifact-batch:试用链路同样支持形态提示(TrialChatRequestSchema 白名单校验过)
+      formHint: dto.formHint,
     });
   }
 
@@ -198,10 +225,49 @@ export class AiService {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // 会话形态台账(R15,当日 TTL;与试用台账同款「进程内 Map + 重启清零」模式)
+  // ---------------------------------------------------------------------------
+
+  /** 读取会话当日形态累计(跨日/无记录返回 undefined;返回拷贝快照,后续 bump 不污染已传入的 initial) */
+  private readSessionFormUsage(sessionId: string): Partial<Record<ArtifactKind, number>> | undefined {
+    const rec = this.sessionFormLedger.get(sessionId);
+    if (!rec || rec.day !== todayKey()) return undefined;
+    const counts = rec.counts;
+    return Object.values(counts).some((n) => (n ?? 0) > 0) ? { ...counts } : undefined;
+  }
+
+  /** generate 成功产出后累计一次形态(旁路台账,任何异常不冒泡) */
+  private bumpSessionFormUsage(sessionId: string, kind: ArtifactKind): void {
+    try {
+      const day = todayKey();
+      const rec = this.sessionFormLedger.get(sessionId);
+      if (!rec || rec.day !== day) {
+        this.sessionFormLedger.set(sessionId, { day, counts: { [kind]: 1 } });
+        return;
+      }
+      rec.counts[kind] = (rec.counts[kind] ?? 0) + 1;
+      // 防膨胀:与试用台账同一清理策略(超上限清非当日)
+      if (this.sessionFormLedger.size >= MAX_TRIAL_LEDGER_KEYS) {
+        for (const [key, r] of this.sessionFormLedger) {
+          if (r.day !== day) this.sessionFormLedger.delete(key);
+        }
+      }
+    } catch {
+      // 台账旁路:失败不影响主链路
+    }
+  }
+
   /** 试用全局日上限(env AI_TRIAL_DAILY_GLOBAL_LIMIT 覆盖,默认 100) */
   private get trialDailyGlobalLimit(): number {
     const raw = Number(this.config.get('AI_TRIAL_DAILY_GLOBAL_LIMIT'));
     return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TRIAL_DAILY_GLOBAL_LIMIT;
+  }
+
+  /** 单 trialId 每日次数(env AI_TRIAL_PER_ID_PER_DAY 覆盖,默认 2;快赢批次一由 1 上调) */
+  private get trialPerIdLimit(): number {
+    const raw = Number(this.config.get('AI_TRIAL_PER_ID_PER_DAY'));
+    return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_TRIAL_PER_ID_PER_DAY;
   }
 
   /**
@@ -255,6 +321,10 @@ export class AiService {
           mode: state.templateMatched ? 'template' : 'real',
           tokens: state.templateMatched ? 0 : usedTokens,
         });
+        // R15:会话形态台账累计(挂起/失败轮不计;偏好需 ≥2 次才构成稳定信号)
+        if (state.sessionId) {
+          this.bumpSessionFormUsage(state.sessionId, state.artifactKind ?? 'flowchart');
+        }
       }
 
       // 短期记忆:每轮落 State(已在 graph.persistTurn 中处理)
@@ -397,7 +467,7 @@ export class AiService {
     const suspended = rec.suspendedState ?? {};
 
     if (dto.choice === 'accept') {
-      const result = this.buildAcceptedResult(payload, suspended.intent, dto.candidateId);
+      const result = this.buildAcceptedResult(payload, suspended.intent, dto.candidateId, suspended.artifactKind);
       if (!result) {
         // 没有可采用的候选(例如三次都是格式非法):退回 retry 语义,提示补充约束
         throw new NotFoundException('当前没有可采用的候选方案,请补充约束后重新生成');
@@ -423,17 +493,25 @@ export class AiService {
       rewriteCount: 0,
       maxRewrites: suspended.maxRewrites ?? 2,
       resumeInstruction: dto.instruction?.trim() || undefined,
+      // multi-artifact-batch:恢复执行保持产物形态稳定(预置 artifactKind 跳过二次路由)
+      formHint: suspended.formHint,
+      artifactKind: suspended.artifactKind,
     };
     this.logger.log(`线程 ${threadId} 用户补充约束后恢复执行: ${dto.instruction ?? '(无补充)'}`);
     void this.executeGraph(threadId, initial);
     return { status: 'pending', threadId };
   }
 
-  /** 把候选方案数据还原成最终 AiResult(按挂起时的意图判定 kind) */
+  /**
+   * 把候选方案数据还原成最终 AiResult(按挂起时的意图判定 kind)。
+   * multi-artifact-batch:挂起形态为非 flowchart 时,候选数据按形态装入对应 payload 字段
+   * (与 graph 组装 result 的字段映射一致,前端按 artifactKind 消费)。
+   */
   private buildAcceptedResult(
     payload: HumanConfirmPayload | undefined,
     intent?: string,
     candidateId?: string,
+    artifactKind?: ArtifactKind,
   ): AiResult | undefined {
     const wanted = candidateId ?? 'accept-current';
     const candidate = payload?.candidates?.find((c) => c.id === wanted);
@@ -441,6 +519,13 @@ export class AiService {
     if (intent === 'modify') {
       const operations = candidate.data as Array<Record<string, any>>;
       return { kind: 'modify', operations };
+    }
+    if (artifactKind && artifactKind !== 'flowchart') {
+      return {
+        kind: 'generate',
+        artifactKind,
+        [ARTIFACT_PAYLOAD_FIELD[artifactKind]]: candidate.data,
+      } as AiResult;
     }
     return { kind: 'generate', flowDraft: candidate.data as any };
   }

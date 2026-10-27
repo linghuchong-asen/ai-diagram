@@ -15,6 +15,8 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BrandLogoSmall } from "../legal/brand";
 import { readTrialDraft, type TrialDraft } from "../../utils/trialIdentity";
+// 会员到期横幅（vip-renewal-reminder-batch 扩展）：已登录首页顶部的续费双触点之一
+import { VipExpiryBanner } from "../shared/VipExpiryBanner";
 import {
   GetProjectQueryData,
   ProjectSearchItem,
@@ -184,6 +186,9 @@ export const HomePage = () => {
           V1.0 · FREE BETA
         </div>
       </PageHeader>
+
+      {/* 会员到期/过期唤醒横幅（旁路数据，失败隐藏；续费双触点之一，另一在浮窗） */}
+      <VipExpiryBanner />
 
       {/* 试用草稿提示条：注册登录后在项目列表上方引导一键继承试用作品 */}
       {trialDraft && (

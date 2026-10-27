@@ -1,20 +1,26 @@
 /*
  * @Description: 登录页面 —— Neon Dark 科技感版本（氛围背景 + 玻璃渐变描边卡片）
+ * 快赢批次一(QW2)：登录后回跳地址支持双通道 —— location.state.from（PrivateRoute 拦截写入）
+ * 与 ?redirect= 查询参数（分享页「复制这张图」等入口写入），查询参数优先，
+ * 保证「分享页 → 登录/注册 → 回分享页」的转化动线不断链。
  * @Author: yangsen
  * @Date: 2024-11-26 09:53:12
  * @LastEditors: yangsen
- * @LastEditTime: 2026-10-20
+ * @LastEditTime: 2026-10-26
  */
 import { Form, Input, Button } from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useLogin } from "./server";
-import { useLocation, Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import BrandTitle from "../legal/brand";
 
 const Login = () => {
 
   const location = useLocation();
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+  // 回跳地址：?redirect= 优先（URL 显式携带，跨登录/注册页传递），其次 PrivateRoute 的 state.from
+  const redirectParam = new URLSearchParams(location.search).get("redirect");
+  const stateFrom = (location.state as { from?: { pathname: string } })?.from?.pathname;
+  const from = redirectParam || stateFrom || "/";
   const { mutateAsync: loginRequest } = useLogin(from);
   const onFinish = (values: any) => {
     // 登录失败已由 useLogin 的 onError 统一提示，此处仅捕获避免 unhandled rejection
@@ -82,7 +88,13 @@ const Login = () => {
           </Form.Item>
           <div style={{ textAlign: "center", fontSize: 13, color: "var(--yt-text-muted)" }}>
             还没有账号？
-            <Link to="/register" style={{ marginLeft: 4 }}>立即注册</Link>
+            {/* 带 redirect 时透传给注册页：注册 → 登录 → 原目标页，动线不断链 */}
+            <Link
+              to={redirectParam ? `/register?redirect=${encodeURIComponent(redirectParam)}` : "/register"}
+              style={{ marginLeft: 4 }}
+            >
+              立即注册
+            </Link>
           </div>
         </Form>
       </div>

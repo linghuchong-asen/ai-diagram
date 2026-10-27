@@ -1,9 +1,11 @@
 // 语图技术方案 - Agent 状态定义
-// LangGraph 状态图:意图识别 → 上下文组装 → 生成/修改 → 反思 → 工具
+// LangGraph 状态图:意图识别 → 形式路由(generate) → 上下文组装 → 生成/修改 → 反思 → 工具
+// multi-artifact-batch:generate 场景携带 artifactKind(产物形态)与 formHint(用户显式指定)
 import { IntentType } from '../schemas/chat.schema';
 import { FlowDraft } from '../schemas/flow-draft.schema';
 import { ModifyPatchOutput } from '../schemas/patch.schema';
 import { CanvasNode } from '../schemas/node.schema';
+import { ArtifactKind } from '../schemas/artifact.schema';
 import { ReflectionIssue } from '../reflection/evaluator';
 import { HumanConfirmPayload } from '../reflection/rewriter';
 import { IntentTokenUsage } from '../intent/intent.llm-classifier';
@@ -31,6 +33,20 @@ export interface AgentState {
   intentReasons?: string[];
   /** 模型兜底产生的 token 用量(Task 7.3) */
   intentUsage?: IntentTokenUsage;
+  /** 用户显式指定的产物形态(multi-artifact-batch:前端 formHint 直传,优先级最高) */
+  formHint?: ArtifactKind;
+  /**
+   * 会话内各形态累计产出次数(competitor-driven-evolution-batch Round 15)。
+   * 由 AiService 进程内台账(createThread 时读出)传入;FormRouter 在规则歧义/未命中时
+   * 若某形态 ≥2 次且严格最多则直接采信(会话偏好),绝不覆盖 formHint。
+   */
+  sessionFormUsage?: Partial<Record<ArtifactKind, number>>;
+  /** generate 意图下的产物形态(multi-artifact-batch:FormRouter 路由结果;undefined 视为 flowchart) */
+  artifactKind?: ArtifactKind;
+  /** 形态路由来源 hint/rule/llm/default(观测字段) */
+  artifactSource?: 'hint' | 'rule' | 'llm' | 'default';
+  /** 形态路由理由链(观测字段) */
+  artifactReasons?: string[];
   contextText?: string;
   contextTruncated?: string[];
   /** 各分段实际占用/上限(上下文预算观测,Task 10.4) */
@@ -45,6 +61,8 @@ export interface AgentState {
   // 生成结果(原始 LLM 输出与解析后结构)
   rawOutput?: string;
   draft?: FlowDraft;
+  /** 非 flowchart 形态解析后的产物(multi-artifact-batch;flowchart 仍用 draft) */
+  artifact?: unknown;
   patch?: ModifyPatchOutput;
   consultAnswer?: string;
 
@@ -88,6 +106,11 @@ export function createInitialState(input: Partial<AgentState>): AgentState {
     // Task 3 免登录试用:startTrial 可预置意图(强制 generate),graph 检测到后跳过意图识别
     intent: input.intent,
     intentSource: input.intentSource,
+    // multi-artifact-batch:formHint 直传;artifactKind 恢复执行(人在回路 retry)时预置,跳过二次路由
+    formHint: input.formHint,
+    artifactKind: input.artifactKind,
+    // competitor-driven-evolution-batch Round 15:会话形态偏好(FormRouter 规则歧义时兜底采信)
+    sessionFormUsage: input.sessionFormUsage,
     needHumanConfirm: input.needHumanConfirm,
     confirmPayload: input.confirmPayload,
     resumeToken: input.resumeToken,
