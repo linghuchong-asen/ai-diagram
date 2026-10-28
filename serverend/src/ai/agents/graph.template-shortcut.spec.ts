@@ -27,17 +27,24 @@ const TABLE_REPLY = `<thinking>对比</thinking>
 function makeGraph(llmReplies: string[], formRouteKind: string) {
   const replies = [...llmReplies];
   const llmCalls: any[] = [];
+  // model-routing-batch:模型桩束提为局部量,供 getModels 与 getModelForTier 共用(共享回复队列与 llmCalls 记录)
+  const largeModel = {
+    stream: async (messages: any) => {
+      llmCalls.push(messages);
+      return streamOf(replies.shift() ?? '');
+    },
+  };
+  const flashModel = { stream: async (messages: any) => { llmCalls.push(messages); return streamOf(replies.shift() ?? ''); } };
   const llmFactory = {
     getModels: () => ({
-      large: {
-        stream: async (messages: any) => {
-          llmCalls.push(messages);
-          return streamOf(replies.shift() ?? '');
-        },
-      },
+      large: largeModel,
+      // model-routing-batch:Auto 路由会把简单请求分到 flash 档,桩束必须包含(与 large 同一桩,共享回复队列)
+      flash: flashModel,
       medium: { stream: async () => streamOf(''), invoke: async () => ({ content: '' }) },
     }),
     getMaxOutputTokens: () => 4096,
+    // model-routing-batch:graph callLlm 的真实入口按档位取模型(flash 走轻量桩,其余走旗舰桩)
+    getModelForTier: (tier: string | undefined) => (tier === 'flash' ? flashModel : largeModel),
   };
   // 真实注册中心 + 真实模板匹配器(validator 工具与本案无关,给最小桩)
   const registry = new ToolRegistry(new TemplateMatcher(), { validate: () => ({ valid: true }) } as never);

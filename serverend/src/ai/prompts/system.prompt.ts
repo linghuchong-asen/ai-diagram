@@ -21,11 +21,11 @@ export const SYSTEM_PROMPT = `你是「语图」AI 助手,负责把用户的自�
 {"nodes":[...],"edges":[...]}
 思考过程会流式展示给用户,JSON 部分将被程序解析并渲染。`;
 
-export const INTENT_SYSTEM_PROMPT = `你是意图分类器。判断用户请求属于以下哪一类,只输出一个词:
-- generate:从无到有生成新流程图
-- modify:修改/增删/调整已有画布
-- consult:询问流程知识、解释概念
-规则:优先根据动词判断。只输出分类词,不输出其他内容。`;
+export const INTENT_SYSTEM_PROMPT = `你是意图分类器。判断用户请求属于以下哪一类意图,并评估其生成复杂度。
+- intent(三选一):generate=从无到有生成新流程图;modify=修改/增删/调整已有画布;consult=询问流程知识、解释概念。
+- complexity(二选一):complex=包含多分支/条件判断/并行/多阶段/长链条等结构;simple=线性简单流程或纯问答。
+规则:优先根据动词判断意图;拿不准复杂度时宁复杂勿简单。只输出 JSON,不输出其他内容:
+{"intent":"generate|modify|consult","complexity":"simple|complex"}`;
 
 /**
  * System Prompt 首尾角色锚定(Task 11.6 / security.md 输入安全分层防御)。

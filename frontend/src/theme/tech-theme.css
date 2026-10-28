@@ -245,6 +245,35 @@ a {
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* ---------- 模型选择下拉（model-routing-batch） ----------
+   与 Quiet Dark 面板同语言:实色 + 发丝线,选中项中性提亮 */
+
+.yt-model-select-dropdown.ant-select-dropdown {
+  background: var(--yt-glass-strong);
+  border: 1px solid var(--yt-border);
+  border-radius: 10px;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55);
+  padding: 4px;
+}
+
+.yt-model-select-dropdown .ant-select-item {
+  border-radius: 6px;
+  color: var(--yt-text-secondary);
+}
+
+.yt-model-select-dropdown .ant-select-item-option-selected {
+  color: var(--yt-text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.yt-model-select-dropdown .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.yt-model-select-dropdown .ant-select-item-option-disabled {
+  color: var(--yt-text-muted);
+}
+
 /* ---------- X6 编辑器暗色适配 ---------- */
 
 /* X6 画布容器透明，露出页面暗色基底 */

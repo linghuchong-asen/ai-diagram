@@ -163,6 +163,24 @@ export class QuotaService {
   }
 
   /**
+   * 轻量会员态判定(model-routing-batch):createThread 时用于「手选旗舰需会员」的闸门。
+   * 与 getDailyUsage 同源的查询逻辑(只取 vipExpireTime),查询失败按非会员处理,不阻断主链路。
+   */
+  async isVipNow(userId: string): Promise<boolean> {
+    if (!userId) return false;
+    try {
+      const user = await this.userRepo.findOne({
+        where: { id: String(userId) },
+        select: ['id', 'vipExpireTime'],
+      });
+      return isVipActive(user?.vipExpireTime);
+    } catch (err) {
+      this.logger.warn(`读取会员态失败(按非会员处理): ${(err as Error)?.message ?? err}`);
+      return false;
+    }
+  }
+
+  /**
    * 配额闸门(Task 11.5 起用,Task 2 收紧语义):创建线程前调用。
    * 生成维度单独闸门:免费档收紧为 3 次/日 + 分享奖励 bonus 后,若沿用旧
    * 「生成与修改都满才拒」联合判定,3/日 限制将形同虚设(modify 500/日实际用不满),

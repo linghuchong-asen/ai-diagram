@@ -26,7 +26,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Graph } from '@antv/x6';
-import { Alert, Button, Input, Modal, Space, Spin, notification } from 'antd';
+import { Alert, Button, Input, Modal, Select, Space, Spin, notification } from 'antd';
 import { RobotOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 // 会员到期提醒（vip-renewal-reminder-batch）：剩余天数与续费文案纯函数
@@ -48,6 +48,13 @@ import {
 import { http } from '../../utils/http';
 import { useIsMobile } from '../../utils/hooks/useIsMobile';
 import { getTrialId, saveTrialDraft } from '../../utils/trialIdentity';
+// model-routing-batch:模型选择器选项与本地偏好(纯函数核心,本组件只做 UI 与请求接线)
+import {
+  MODEL_PREFERENCE_OPTIONS,
+  loadModelPreference,
+  saveModelPreference,
+  type ModelPreference,
+} from '../../utils/modelPreference';
 import type { ArtifactKind } from '../../utils/aiClient';
 import { autoLayout } from './layout/auto-layout';
 import { flowDraftToX6, x6ToFlowDraft, type FlowDraftLike, type FlowDraftToX6Result } from './transform/to-x6';
@@ -301,6 +308,13 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
   const [checking, setChecking] = useState(false);
   /** 会员剩余天数（vip-renewal-reminder-batch）：null = 非会员；≤3 天进入续费提醒态 */
   const [vipDaysLeftState, setVipDaysLeft] = useState<number | null>(null);
+  /**
+   * 模型偏好（model-routing-batch）：Trae 式模型选择 —— 手选档位直通,auto 走后端复杂度路由。
+   * 初值取 localStorage(脏数据净化回落 auto);变更即持久化,下次会话沿用。
+   */
+  const [modelPref, setModelPref] = useState<ModelPreference>(() => loadModelPreference());
+  /** 会员在期与否(手选旗舰的门槛;quota 视图加载前按非会员处理,加载后自动放开) */
+  const vipActive = vipDaysLeftState != null && vipDaysLeftState > 0;
 
   /** 拉取签到状态（旁路，失败静默按未签展示） */
   const fetchCheckin = () => {
@@ -568,6 +582,8 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
     const req: ChatRequest = { message: text };
     // multi-artifact-batch：快捷 chips/显式选择产物形态时携带 formHint（后端白名单校验）
     if (formHint) req.formHint = formHint;
+    // model-routing-batch:手选档位随请求直通(auto 不传,后端默认即 auto);试用链路后端强制轻量,不携带
+    if (!trialMode && modelPref !== 'auto') req.modelPreference = modelPref;
     if (trialMode) {
       req.trialId = getTrialId();
     } else {
@@ -1059,6 +1075,49 @@ export default function AiFloatWindow({ graph, projectId, trialMode = false, ini
           >
             下一版
           </Button>
+        </div>
+      ) : null}
+
+      {/* 模型选择（model-routing-batch）：Trae 式 —— 手选档位直通,Auto 走后端复杂度路由。
+          试用链路不展示(后端强制轻量档,展示会造成可自选的错觉);旗舰档会员可用,非会员置灰引导开通 */}
+      {!trialMode ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexShrink: 0,
+            padding: '6px 14px 0',
+          }}
+        >
+          <span
+            className="yt-mono"
+            style={{ fontSize: 10, color: 'var(--yt-text-muted)', letterSpacing: '0.1em' }}
+          >
+            MODEL
+          </span>
+          <Select<ModelPreference>
+            size="small"
+            bordered={false}
+            value={modelPref}
+            onChange={(value) => {
+              setModelPref(value);
+              saveModelPreference(value);
+            }}
+            style={{ minWidth: 116 }}
+            dropdownClassName="yt-model-select-dropdown"
+            options={MODEL_PREFERENCE_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.vipOnly && !vipActive ? `${option.label} · 会员` : option.label,
+              disabled: option.vipOnly === true && !vipActive,
+            }))}
+          />
+          <span style={{ flex: 1 }} />
+          {modelPref === 'flagship' && vipActive ? (
+            <span className="yt-mono" style={{ fontSize: 10, color: 'var(--yt-accent)' }}>
+              FLAGSHIP
+            </span>
+          ) : null}
         </div>
       ) : null}
 

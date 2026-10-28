@@ -28,6 +28,8 @@ import { GENERIC_ERROR_PROMPT } from '../prompts/fallback.prompt';
 // multi-artifact-batch:形式路由(generate 意图内的二级路由)与产物契约
 import { FormRouter } from '../form/form.router';
 import { ArtifactKind, ARTIFACT_PAYLOAD_FIELD, artifactSchemaFor } from '../schemas/artifact.schema';
+// model-routing-batch:生成档位路由(Trae 式模型选择 —— 手选直通 / Auto 复杂度分层 / 试用强制轻量)
+import { decideGenerationTier, estimateComplexityByRules } from './model-route';
 // Task 11.6:Prompt 注入防御 —— 意图识别前做输入模式过滤(命中清洗或拒绝)
 import { INJECTION_REFUSAL, filterUserInput } from '../security/prompt-injection';
 // Task 10.5:实体槽 ingest 需要把结构化结果序列化为文本(复用 error-sanitizer 的循环引用兜底序列化)
@@ -186,6 +188,55 @@ export class FlowStateGraph {
         intentSource: state.intentSource,
       });
 
+      // ---- 节点 1.2:模型档位路由(model-routing-batch) ----
+      // Trae 式模型选择:用户手选具体档位直通(flagship 需会员);Auto 按复杂度分层 ——
+      // 规则优先(零 token)→ 意图模型兜底顺带输出的 complexity(一次调用两用)→ 保守默认旗舰。
+      // consult 问答固定走 medium(runConsult),不经过生成档位路由;
+      // 恢复执行(人在回路 retry)时 modelTier 已预置,跳过二次路由保持档位稳定。
+      if (!state.modelTier && state.intent !== 'consult') {
+        const modelRouteStartedAt = Date.now();
+        const modelRoute = decideGenerationTier({
+          modelPreference: state.modelPreference,
+          intent: state.intent,
+          query: state.query,
+          llmComplexity: intent.complexity,
+          isVip: state.isVip === true,
+          isTrial: Boolean(state.trialId),
+        });
+        state.modelTier = modelRoute.tier;
+        state.modelTierSource = modelRoute.source;
+        state.modelTierReasons = modelRoute.reasons;
+        if (modelRoute.complexity) {
+          state.complexity = modelRoute.complexity;
+          state.complexitySource = modelRoute.complexitySource;
+        }
+        this.logger.debug(
+          `模型档位路由: ${modelRoute.tier} (source=${modelRoute.source}, preference=${state.modelPreference ?? 'auto'}, isVip=${state.isVip === true}, isTrial=${Boolean(state.trialId)})`,
+        );
+        // 档位路由观测:档位分布/来源(preference/trial-force/rule/llm/default)是成本优化的核心指标
+        await this.traceService?.recordStep({
+          threadId: state.threadId,
+          stepName: TRACE_STEPS.MODEL_ROUTE,
+          status: 'ok',
+          input: {
+            preference: state.modelPreference ?? 'auto',
+            queryLength: state.query.length,
+            intent: state.intent,
+          },
+          output: modelRoute.tier,
+          startedAt: modelRouteStartedAt,
+          usageSource: 'none',
+          meta: {
+            tier: modelRoute.tier,
+            source: modelRoute.source,
+            complexity: modelRoute.complexity ?? null,
+            complexitySource: modelRoute.complexitySource ?? null,
+            isVip: state.isVip === true,
+            isTrial: Boolean(state.trialId),
+          },
+        });
+      }
+
       // ---- 节点 1.5:形式路由(multi-artifact-batch) ----
       // generate 意图下决定「产什么形态」:formHint 直通 → 关键词规则 → LLM 兜底 → 默认 flowchart。
       // 恢复执行(人在回路 retry)时 artifactKind 已预置,跳过二次路由保持形态稳定。
@@ -323,6 +374,16 @@ export class FlowStateGraph {
         await this.generateWithRewrite(state, loop, options);
       }
 
+      // ---- 节点 4.5:实际档位透出(model-routing-batch,观测与前端展示) ----
+      if (state.result && typeof state.result === 'object') {
+        if (state.modelTier) {
+          (state.result as Record<string, unknown>).routedModel = state.modelTier;
+        } else if (state.intent === 'consult') {
+          // consult 问答固定走 medium,不经过生成档位路由,这里补对齐字段
+          (state.result as Record<string, unknown>).routedModel = 'medium';
+        }
+      }
+
       // ---- 节点 5:落记忆(工具重试/参数修正已在 ToolExecutor 内闭环) ----
       await this.persistTurn(state);
       await this.finishTrace(state, runStartedAt, contextTokens);
@@ -426,6 +487,9 @@ export class FlowStateGraph {
         }
         loop.consume();
         state.rewriteCount = loop.retryCount;
+        // model-routing-batch:轻量档误判兜底 —— 即将进行的若是末次重试,升级旗舰再试一把,
+        // 失败才转人在回路(事后升级比前置精判更稳:误判代价从「产品变笨」降为「多花一次轻量调用」)
+        this.escalateModelTierOnLastRetry(state, loop);
         state.reflectionIssues = issues;
         // Rewriter 局部修正:注入失败原因重新生成(不重走完整主流程)
         state.contextText = this.rewriter.buildCorrectionPrompt({
@@ -497,6 +561,9 @@ export class FlowStateGraph {
         }
         loop.consume();
         state.rewriteCount = loop.retryCount;
+        // model-routing-batch:轻量档误判兜底 —— 即将进行的若是末次重试,升级旗舰再试一把,
+        // 失败才转人在回路(事后升级比前置精判更稳:误判代价从「产品变笨」降为「多花一次轻量调用」)
+        this.escalateModelTierOnLastRetry(state, loop);
         state.reflectionIssues = issues;
         state.contextText = this.rewriter.buildCorrectionPrompt({
           intent: 'generate',
@@ -536,6 +603,9 @@ export class FlowStateGraph {
         }
         loop.consume();
         state.rewriteCount = loop.retryCount;
+        // model-routing-batch:轻量档误判兜底 —— 即将进行的若是末次重试,升级旗舰再试一把,
+        // 失败才转人在回路(事后升级比前置精判更稳:误判代价从「产品变笨」降为「多花一次轻量调用」)
+        this.escalateModelTierOnLastRetry(state, loop);
         state.reflectionIssues = issues;
         state.contextText = this.rewriter.buildCorrectionPrompt({
           intent: 'generate',
@@ -569,6 +639,21 @@ export class FlowStateGraph {
         draftSummary: summarizeDraft(lastDraft),
       });
       await this.recordRewrite(state, 'generate', issues);
+    }
+  }
+
+  /**
+   * model-routing-batch:轻量档末次重试升级旗舰。
+   * 仅在「即将进行的下一次尝试是最后一次」时触发 —— 升级后本次生成还有一次机会通过反思校验;
+   * 若旗舰也失败,仍走既有人在回路挂起,行为不变。trial 强制轻量的链路同样允许升级:
+   * 一次失败的试用=浪费一次试用名额+转化流失,比多花一次旗舰调用更贵。
+   */
+  private escalateModelTierOnLastRetry(state: AgentState, loop: LoopController): void {
+    if (state.modelTier === 'flash' && !loop.canRetry()) {
+      state.modelTier = 'flagship';
+      state.modelTierSource = 'escalate';
+      state.modelTierReasons = [...(state.modelTierReasons ?? []), '轻量档反思连续失败,末次重试升级旗舰'];
+      this.logger.warn(`轻量档生成反思连续失败,末次重试升级旗舰模型: thread=${state.threadId}`);
     }
   }
 
@@ -622,8 +707,9 @@ export class FlowStateGraph {
 
   /** 调用 LLM:CoT 思考流式输出 token,最后返回完整文本(提示词统一由 prompts 模块出) */
   private async callLlm(state: AgentState, options: GraphRunOptions, attempt = 0): Promise<string> {
-    const models = this.llmFactory.getModels();
-    const llm = models.large;
+    // model-routing-batch:主生成模型由档位路由决定(flagship=旗舰 / flash=轻量;缺省回落旗舰),
+    // 不再硬编码 models.large —— Auto 简单请求与试用链路由此真正落到便宜档。
+    const llm = this.llmFactory.getModelForTier(state.modelTier);
     // Task 9.3:generate / modify 分别走各自的提示词构造器,不在编排层手拼 role;
     // multi-artifact-batch:generate 且非 flowchart 时按形态分发专属提示词(契约不同)
     const messages =
@@ -660,7 +746,7 @@ export class FlowStateGraph {
       output: full,
       startedAt: llmStartedAt,
       errorType: full ? undefined : 'empty_response',
-      meta: { intent: state.intent, attempt, model: 'large' },
+      meta: { intent: state.intent, attempt, model: state.modelTier ?? 'flagship' },
     });
     return full;
   }

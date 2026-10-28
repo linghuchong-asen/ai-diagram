@@ -2,11 +2,13 @@
  * @Description: trace 埋点的公共类型与步骤名常量
  */
 
-/** 轨迹步骤名(埋点覆盖:意图识别 / 形式路由 / 上下文组装 / 工具调用 / 生成 / 反思) */
+/** 轨迹步骤名(埋点覆盖:意图识别 / 形式路由 / 模型档位路由 / 上下文组装 / 工具调用 / 生成 / 反思) */
 export const TRACE_STEPS = {
   INTENT: 'intent.recognize',
   /** competitor-driven-evolution-batch Round 14:generate 意图内的产物形态路由(形式路由) */
   FORM_ROUTE: 'form.route',
+  /** model-routing-batch:生成档位路由(auto 复杂度路由 / 手选直通 / 试用强制) */
+  MODEL_ROUTE: 'model.route',
   CONTEXT: 'context.build',
   TOOL_CALL: 'tool.call',
   GENERATE: 'llm.generate',

@@ -19,6 +19,14 @@ import {
 export const INTENT_TYPES = ['generate', 'modify', 'consult'] as const;
 export type IntentType = (typeof INTENT_TYPES)[number];
 
+// 模型偏好(model-routing-batch):Trae 式模型选择 —— auto=智能路由(默认),
+// flagship=旗舰模型(会员可手选),flash=轻量快速(所有用户可手选)。
+// 登录链路白名单校验;试用链路不接收该字段(后端强制 flash 控成本)。
+export const MODEL_PREFERENCES = ['auto', 'flagship', 'flash'] as const;
+export type ModelPreference = (typeof MODEL_PREFERENCES)[number];
+
+export const ModelPreferenceSchema = z.enum(MODEL_PREFERENCES);
+
 // Chat 请求体
 export const ChatRequestSchema = z.object({
   message: z.string().min(1, '消息不能为空').max(2000, '消息过长'),
@@ -39,6 +47,11 @@ export const ChatRequestSchema = z.object({
    * 优先级最高——FormRouter 检测到 formHint 时跳过规则与 LLM 路由;白名单外的值由校验层直接 400。
    */
   formHint: ArtifactFormHintSchema.optional(),
+  /**
+   * 模型偏好(model-routing-batch):用户显式选择具体模型档位时直通该档;
+   * 缺省/auto 时由复杂度路由决定(规则优先 → 意图模型兜底顺带输出 → 保守默认旗舰)。
+   */
+  modelPreference: ModelPreferenceSchema.optional(),
 });
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
@@ -77,6 +90,8 @@ export const GenerateResultSchema = z
     kind: z.literal('generate'),
     /** 产物形态;缺省 = flowchart(兼容历史响应) */
     artifactKind: z.enum(['flowchart', 'mindmap', 'table', 'checklist', 'timeline']).optional(),
+    /** 实际使用的生成档位(model-routing-batch 观测字段;flagship/flash) */
+    routedModel: z.string().optional(),
     flowDraft: z
       .object({
         nodes: z.array(
@@ -122,12 +137,16 @@ export const ModifyResultSchema = z.object({
   kind: z.literal('modify'),
   operations: z.array(z.record(z.string(), z.any())),
   notice: z.string().optional(),
+  /** 实际使用的生成档位(model-routing-batch 观测字段) */
+  routedModel: z.string().optional(),
 });
 
 export const ConsultResultSchema = z.object({
   kind: z.literal('consult'),
   answer: z.string(),
   notice: z.string().optional(),
+  /** consult 固定走 medium 档,此字段仅作对齐(值为 'medium') */
+  routedModel: z.string().optional(),
 });
 
 export type AiResult =

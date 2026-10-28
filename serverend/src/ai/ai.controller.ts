@@ -87,6 +87,8 @@ export class AiController {
       projectId: reqBody.projectId,
       // multi-artifact-batch:产物形态提示(Schema 层白名单校验过才到这里)
       formHint: reqBody.formHint,
+      // model-routing-batch:模型偏好(手选直通/auto 走复杂度路由;会员态由 service 侧查询)
+      modelPreference: reqBody.modelPreference,
     });
   }
 

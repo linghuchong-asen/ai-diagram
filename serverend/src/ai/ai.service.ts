@@ -18,7 +18,7 @@ import { ToolExecutor } from './tools/tool-executor';
 import { CheckpointService } from './memory/short-term/checkpoint.memory';
 import { LongTermMemoryService } from './memory/long-term/long-term.store';
 import { UserProfileService } from './memory/profile/user.profile';
-import { ChatRequest, AiResult, IntentType, TrialChatRequest } from './schemas/chat.schema';
+import { ChatRequest, AiResult, IntentType, TrialChatRequest, ModelPreference } from './schemas/chat.schema';
 // multi-artifact-batch:产物形态枚举与 payload 字段映射(accept 还原候选时使用)
 import { ArtifactKind, ARTIFACT_PAYLOAD_FIELD } from './schemas/artifact.schema';
 import { CanvasNode } from './schemas/node.schema';
@@ -39,6 +39,10 @@ export interface ChatInitDto {
   trialId?: string;
   /** multi-artifact-batch:用户显式指定的产物形态(前端快捷 chips/下拉;FormRouter 最高优先级) */
   formHint?: ArtifactKind;
+  /** model-routing-batch:用户模型偏好(手选直通;缺省 auto 走复杂度路由;试用链路忽略此字段) */
+  modelPreference?: ModelPreference;
+  /** model-routing-batch:发起用户是否会员(手选旗舰的闸门;由 createThread 查询,不信任请求体) */
+  isVip?: boolean;
 }
 
 /** 确认动作(Task 9.5):accept = 采用候选方案;retry = 补充约束后重跑 */
@@ -120,6 +124,10 @@ export class AiService {
     const sessionId = dto.sessionId ?? `${userId ?? 'anon'}:${dto.projectId ?? 'default'}`;
 
     // 后台异步执行,不阻塞响应
+    // model-routing-batch:仅当用户手选旗舰时才需要会员态(闸门),Auto 路由不依赖 isVip,
+    // 避免每次请求多打一次用户表查询;查询是旁路语义,失败按非会员处理(isVipNow 内部兜底)。
+    const isVip =
+      userId && dto.modelPreference === 'flagship' ? await this.quota.isVipNow(userId) : false;
     void this.executeGraph(threadId, {
       threadId,
       sessionId,
@@ -133,6 +141,9 @@ export class AiService {
       trialId: dto.trialId,
       // multi-artifact-batch:产物形态提示直传(FormRouter formHint 直通)
       formHint: dto.formHint,
+      // model-routing-batch:模型偏好 + 会员态(手选旗舰闸门)
+      modelPreference: dto.modelPreference,
+      isVip,
       // R15:会话内各形态累计(当日台账快照),FormRouter 规则歧义时按偏好兜底采信
       sessionFormUsage: sessionId ? this.readSessionFormUsage(sessionId) : undefined,
     });
@@ -285,8 +296,11 @@ export class AiService {
 
       // Task 11.5:配额计量 + 会话软上限(旁路,失败不影响主链路)
       // 注入拦截轮不计量(未消耗模型 token);错误轮也按实际产出计量
+      // quota-bug-fix(2026-10-28):模板命中短路轮零 LLM token,不扣生成次数 ——
+      //   与 assertCanRun 的 429 文案「模板一键生成不消耗额度」对齐(此前文案承诺了但实际照扣)。
       let sessionNotice: string | undefined;
-      if (state.userId && state.intent) {
+      const templateShortcut = state.templateMatched === true && state.intent === 'generate';
+      if (state.userId && state.intent && !templateShortcut) {
         const usedTokens =
           (state.rawOutput?.length ?? 0) + (state.consultAnswer?.length ?? 0) + (state.query?.length ?? 0);
         await this.quota.consume(state.userId, state.intent, usedTokens);

@@ -10,6 +10,10 @@ import { ReflectionIssue } from '../reflection/evaluator';
 import { HumanConfirmPayload } from '../reflection/rewriter';
 import { IntentTokenUsage } from '../intent/intent.llm-classifier';
 import { ToolResult } from '../tools/tool.types';
+// model-routing-batch:模型档位路由的输入/产出类型
+import type { ModelPreference } from '../schemas/chat.schema';
+import type { GenerationTier } from '../adapters/llm.factory';
+import type { ModelRouteSource } from './model-route';
 
 export interface AgentState {
   // 输入
@@ -47,6 +51,22 @@ export interface AgentState {
   artifactSource?: 'hint' | 'rule' | 'llm' | 'default';
   /** 形态路由理由链(观测字段) */
   artifactReasons?: string[];
+
+  // 模型档位路由(model-routing-batch)
+  /** 用户模型偏好(手选直通;缺省 = auto 智能路由) */
+  modelPreference?: ModelPreference;
+  /** 是否会员(手选旗舰的门槛;Auto 路由不受限) */
+  isVip?: boolean;
+  /** 复杂度结论(简单/复杂;来源见 complexitySource) */
+  complexity?: 'simple' | 'complex';
+  /** 复杂度结论来源(观测字段) */
+  complexitySource?: 'rule' | 'llm' | 'default';
+  /** 生成档位路由结果(generate/modify 主生成消费;consult 不经过路由) */
+  modelTier?: GenerationTier;
+  /** 档位路由来源(观测字段;'escalate' 表示轻量档反思失败后末次重试升级旗舰) */
+  modelTierSource?: ModelRouteSource | 'escalate';
+  /** 档位路由理由链(观测字段) */
+  modelTierReasons?: string[];
   contextText?: string;
   contextTruncated?: string[];
   /** 各分段实际占用/上限(上下文预算观测,Task 10.4) */
@@ -109,6 +129,10 @@ export function createInitialState(input: Partial<AgentState>): AgentState {
     // multi-artifact-batch:formHint 直传;artifactKind 恢复执行(人在回路 retry)时预置,跳过二次路由
     formHint: input.formHint,
     artifactKind: input.artifactKind,
+    // model-routing-batch:模型偏好/会员态直传;modelTier 恢复执行时预置则跳过二次路由
+    modelPreference: input.modelPreference,
+    isVip: input.isVip,
+    modelTier: input.modelTier,
     // competitor-driven-evolution-batch Round 15:会话形态偏好(FormRouter 规则歧义时兜底采信)
     sessionFormUsage: input.sessionFormUsage,
     needHumanConfirm: input.needHumanConfirm,

@@ -32,6 +32,11 @@ export interface IntentResult {
   usage?: IntentTokenUsage;
   /** 是否经过模型兜底(无论成败),用于观测兜底触发率 */
   llmAttempted: boolean;
+  /**
+   * 复杂度结论(model-routing-batch):仅意图模型兜底真实运行时由模型顺带输出;
+   * 规则命中路径不产出(llm 复杂度不可得),复杂度路由器会退回自己的确定性规则。
+   */
+  complexity?: 'simple' | 'complex';
 }
 
 @Injectable()
@@ -79,6 +84,7 @@ export class IntentRecognizer {
           reasons: [...rule.reasons, `模型兜底: ${classified.reason}`],
           usage: classified.usage,
           llmAttempted: true,
+          complexity: classified.complexity,
         };
       }
       // 兜底失败(超时/网络/非法输出)→ 回落规则,并把原因写入 reasons(可观测)

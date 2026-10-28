@@ -561,3 +561,16 @@ og:image（待设计资产）、知乎卡位/导航站收录/公众号兑换码�
 - **页面清扫**：9 处渐变标题改纯色（landing/annual/digest/fun/mind/scenarios×2/templates/brand）；全站硬编码霓虹色与蓝灰面清零（浮窗/渲染器/编辑器配置面板/画布 chrome/连接桩 #31d0c6→#7c86e8/minimap/port-groups）；`shareCard.ts`、`annualCard.ts` 导出图色板同步；`var(--yt-accent, #22d3ee)` 回退值清理。
 - **明确不改**：节点类型功能色（内容级辨识色）、antd 组件默认蓝（另立批次做 ConfigProvider 主色）。
 - 验证：前端 tsc 0 错误；25 个 check 脚本全绿；真实渲染截图逐页验收（首页/登录/模板/定价/试用/场景库）；grep 无霓虹色残留。
+
+---
+
+# 模型路由批次（2026-10-28 凌晨批次）
+
+> 规格依据：`docs/specs/model-routing-batch/spec.md`。Trae 式模型选择 —— 手选直通 / Auto 按请求复杂度自动分配旗舰或轻量档；旗舰档挂会员权益；顺带修复模板命中轮误扣生成次数。
+
+- **路由核心**：新增纯函数 `agents/model-route.ts`，决策优先级「试用强制 flash（source=trial-force）→ 手选直通（flagship 需会员，非会员平滑回落 Auto）→ Auto 分层」。Auto 分层 = 零 token 规则（≤40 字无分支信号词 → flash；分支词 ≥2 / 箭头 ≥4 / 长度 ≥120 → flagship）→ 复用意图分类那次 medium 调用顺带输出的 complexity（一次调用两用，绝不为判级单独调模型）→ 保守默认旗舰（误判到轻量的代价是「产品变笨」，比多花钱更伤）。
+- **状态图接线**：`graph.ts` 新增节点 1.2（意图后、形态前定档，consult 除外，人在回路恢复时已预置则跳过）；callLlm 改 `getModelForTier(state.modelTier)`；工厂新增 flash 档（env `LLM_MODEL_FLASH`，默认 qwen-turbo，温度 0.15）；5 处 Rewriter 重试点接入「轻量档连续反思失败且下一次即末次重试 → 升级旗舰」兜底链（试用同样生效——一次失败的试用比多花一次调用更贵）。结果契约加可选 `routedModel` 观测字段，trace 新增 `model.route` 步骤。
+- **意图顺带判级**：`INTENT_SYSTEM_PROMPT` 改输出 JSON `{"intent","complexity"}`，zod 契约加可选字段向后兼容（模型不配合或缺省时路由退回规则/默认旗舰，行为安全）。
+- **前端选择器**：浮窗输入区上方新增 MODEL 选择行（智能路由 / 旗舰模型·会员 / 轻量快速）；旗舰档非会员置灰（会员态复用已有 quota 视图，零新增请求）、试用模式隐藏；偏好 localStorage 净化读写（脏数据回落 auto）；仅登录链路且 ≠auto 时随请求携带。
+- **FIXED 模板命中轮误扣生成次数**：429 文案承诺「模板一键生成不消耗额度」，但 quota.consume 未排除 templateMatched 轮 —— 模板命中零 token 照扣 1 次。计量条件补排除，与文案对齐。注意统计口径：真实 LLM 生成次数略降、模板使用占比上升，增长看板解读时留意。
+- 验证：后端 tsc 0 错误；`model-route.spec` 14 用例绿；`npx jest src/ai` 24 套件/270 用例绿；全量 jest 44 套件/496 用例绿（净增 14）；前端 tsc 0 错误、26 个 check 脚本全绿；`LLM_MODEL_FLASH` 已记入两份部署运维手册。

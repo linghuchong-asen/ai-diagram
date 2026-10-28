@@ -1,8 +1,10 @@
 // 语图技术方案 - 意图识别「模型兜底」分类器(Task 7.1 / 7.2)
 // 定位:规则优先(确定性程序覆盖 80%+ 场景),仅在「未命中 / 无动词特征 / 歧义 / 多规则命中」时调用模型。
+// model-routing-batch:同一次调用顺带输出 complexity(simple|complex)——
+//   复杂度路由绝不为判级单独再调一次模型(省的钱不能被分类调用吃掉),一次调用两用。
 // 约束:
 //   1) 模型只读获取(LlmFactory.getModels()),不修改适配器层;
-//   2) 输出必须过 zod 校验(generate|modify|consult 枚举),非法值一律视为失败;
+//   2) 输出必须过 zod 校验(intent 枚举 + complexity 枚举可选),非法值一律视为失败;
 //   3) 调用必须超时 + try/catch,失败绝不抛出,由调用方回落规则;
 //   4) 透传 token 用量,便于成本观测。
 import { Injectable, Logger } from '@nestjs/common';
@@ -20,11 +22,13 @@ export interface IntentTokenUsage {
   totalTokens: number;
 }
 
-/** 模型输出的 zod 契约:意图枚举 + 置信度 + 理由 */
+/** 模型输出的 zod 契约:意图枚举 + 置信度 + 理由 + 复杂度(model-routing-batch,可选向后兼容) */
 export const IntentClassificationSchema = z.object({
   intent: z.enum(INTENT_TYPES),
   confidence: z.number().min(0).max(1).optional(),
   reason: z.string().max(200).optional(),
+  /** 复杂度路由复用字段:模型未输出时缺省,由调用方走规则/保守默认 */
+  complexity: z.enum(['simple', 'complex']).optional(),
 });
 
 export type IntentClassification = z.infer<typeof IntentClassificationSchema>;
@@ -35,6 +39,8 @@ export interface IntentClassifyOk {
   intent: IntentType;
   confidence: number;
   reason: string;
+  /** 模型顺带输出的复杂度(model-routing-batch;未输出时 undefined) */
+  complexity?: 'simple' | 'complex';
   usage?: IntentTokenUsage;
 }
 
@@ -94,6 +100,7 @@ export class IntentLlmClassifier {
         intent: parsed.value.intent,
         confidence: parsed.value.confidence ?? DEFAULT_LLM_CONFIDENCE,
         reason: parsed.value.reason ?? '模型分类',
+        complexity: parsed.value.complexity,
         usage: extractTokenUsage(response),
       };
     } catch (err: any) {
@@ -171,7 +178,7 @@ export function buildClassifierUserPrompt(query: string, rule: RuleDecision | nu
       lines.push(`规则线索:未命中确定性规则(${rule.reasons.join(' / ')})`);
     }
   }
-  lines.push('请只输出分类词 generate / modify / consult 之一。');
+  lines.push('请只输出 JSON:{"intent":"generate|modify|consult","complexity":"simple|complex"}。');
   return lines.join('\n');
 }
 

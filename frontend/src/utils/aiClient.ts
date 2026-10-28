@@ -20,6 +20,9 @@
 // 类型定义（前端独立声明，与后端 schema 对齐，不 import 后端文件）
 // ---------------------------------------------------------------------------
 
+// model-routing-batch:模型偏好类型从本地工具模块引入(前端内单一来源,选项/净化/存储同源)
+import type { ModelPreference } from './modelPreference';
+
 export type IntentType = 'generate' | 'modify' | 'consult';
 
 export type CanvasNodeType =
@@ -49,6 +52,11 @@ export interface ChatRequest {
    * 后端 FormRouter 最高优先级直通；白名单外值由后端 zod 校验拒绝（400）。
    */
   formHint?: ArtifactKind;
+  /**
+   * 模型偏好（model-routing-batch）：手选档位直通（flagship 需会员）；
+   * auto/缺省由后端复杂度路由决定。试用链路不携带（后端强制轻量档控成本）。
+   */
+  modelPreference?: ModelPreference;
 }
 
 export interface ChatResponse {
@@ -599,6 +607,11 @@ export async function startChat(req: ChatRequest, signal?: AbortSignal): Promise
   if (req.sessionId) payload.sessionId = req.sessionId;
   if (req.projectId) payload.projectId = req.projectId;
   if (req.trialId) payload.trialId = req.trialId;
+  // model-routing-batch:模型偏好仅在登录链路携带(试用端点不收该字段,后端强制轻量档);
+  // auto 为后端默认值,不传以保持请求体精简
+  if (!req.trialId && req.modelPreference && req.modelPreference !== 'auto') {
+    payload.modelPreference = req.modelPreference;
+  }
 
   // 试用链路：携带 trialId 时改走 /ai/trial/chat（匿名单次试用）；
   // 该端点响应经 TransformInterceptor 包成 { code:0, data:{ threadId }, message }，
